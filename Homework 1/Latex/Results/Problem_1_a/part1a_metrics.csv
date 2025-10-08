@@ -1,4 +1,4 @@
 Method,Params,ARI,NMI,Silhouette,Notes
 PCA,n_components=2,0.3614,0.5190,0.3993,2D embedding
-NMF¡úPCA,"k=20, then 2D PCA",0.1588,0.2961,0.4080,"best reconstruction k among [10, 15, 20] (err=583.9034)"
+NMF -> PCA,"k=20, then 2D PCA",0.1588,0.2961,0.4080,"best reconstruction k among [10, 15, 20] (err=583.9034)"
 ICA,n_components=2 (with standardization),0.3175,0.4567,0.3673,2D embedding

@@ -1,7 +1,7 @@
 '''
 Author: Chuyang Su cs4570@columbia.edu
 Date: 2025-10-08 17:16:54
-LastEditTime: 2025-10-08 18:16:45
+LastEditTime: 2025-10-08 18:21:50
 FilePath: /Unsupervised-Learning-Homework/Homework 1/Code/Problem_1_a.py
 Description: 
     This is the code part of GR5244 Unsupervised Learning Homework 1 Part 1a.
@@ -75,8 +75,8 @@ def run(seed=0, nmf_ks=(10, 15, 20), outdir="Homework 1/Latex"):
 
     # Load data
     digits = load_digits()
-    X = digits.data.astype(float)        # (1797, 64)
-    y = digits.target                    # (1797,)
+    X = digits.data.astype(float)
+    y = digits.target
     img_shape = (8, 8)
 
     # ----------------------------
@@ -96,7 +96,7 @@ def run(seed=0, nmf_ks=(10, 15, 20), outdir="Homework 1/Latex"):
     # ----------------------------
     # NMF (grid over k), then 2D via PCA-on-W for visualization
     # ----------------------------
-    X_nonneg = X - X.min() if X.min() < 0 else X  # digits 原本非负，这里稳妥处理
+    X_nonneg = X - X.min() if X.min() < 0 else X
     best_nmf = None
     best_rec = np.inf
     best_k = None
@@ -115,7 +115,7 @@ def run(seed=0, nmf_ks=(10, 15, 20), outdir="Homework 1/Latex"):
     # Reduce W to 2D for visualization
     nmf_to2 = PCA(n_components=2, random_state=seed)
     X_nmf_2 = nmf_to2.fit_transform(W_best)
-    plot_embedding(X_nmf_2, y, f"NMF→PCA (2D)  [k={best_k}]", f"{outdir}/nmf_2d.png")
+    plot_embedding(X_nmf_2, y, f"NMF -> PCA (2D)  [k={best_k}]", f"{outdir}/nmf_2d.png")
 
     # Visualize NMF basis (H)
     plot_components(best_nmf.components_, img_shape, n_show=10,
@@ -126,7 +126,6 @@ def run(seed=0, nmf_ks=(10, 15, 20), outdir="Homework 1/Latex"):
     # ----------------------------
     # ICA (2D embedding + components)
     # ----------------------------
-    # FastICA 常配合标准化
     ica_pipeline = make_pipeline(StandardScaler(with_std=True), FastICA(n_components=2, random_state=seed, max_iter=1000))
     X_ica_2 = ica_pipeline.fit_transform(X)
     plot_embedding(X_ica_2, y, "ICA (2D)", f"{outdir}/ica_2d.png")
@@ -148,14 +147,14 @@ def run(seed=0, nmf_ks=(10, 15, 20), outdir="Homework 1/Latex"):
         writer = csv.writer(f)
         writer.writerow(["Method", "Params", "ARI", "NMI", "Silhouette", "Notes"])
         writer.writerow(["PCA", "n_components=2", f"{pca_ari:.4f}", f"{pca_nmi:.4f}", f"{pca_sil:.4f}", "2D embedding"])
-        writer.writerow(["NMF→PCA", f"k={best_k}, then 2D PCA", f"{nmf_ari:.4f}", f"{nmf_nmi:.4f}", f"{nmf_sil:.4f}",
+        writer.writerow(["NMF -> PCA", f"k={best_k}, then 2D PCA", f"{nmf_ari:.4f}", f"{nmf_nmi:.4f}", f"{nmf_sil:.4f}",
                          f"best reconstruction k among {list(nmf_ks)} (err={best_rec:.4f})"])
         writer.writerow(["ICA", "n_components=2 (with standardization)", f"{ica_ari:.4f}", f"{ica_nmi:.4f}", f"{ica_sil:.4f}", "2D embedding"])
 
     # Also print a neat summary
     print("\n=== Part 1(a) — Linear Methods on Digits ===")
     print(f"[PCA]       ARI={pca_ari:.4f}  NMI={pca_nmi:.4f}  Silhouette={pca_sil:.4f}")
-    print(f"[NMF to PCA]   ARI={nmf_ari:.4f}  NMI={nmf_nmi:.4f}  Silhouette={nmf_sil:.4f}  (best k={best_k}, recon_err={best_rec:.4f})")
+    print(f"[NMF -> PCA]   ARI={nmf_ari:.4f}  NMI={nmf_nmi:.4f}  Silhouette={nmf_sil:.4f}  (best k={best_k}, recon_err={best_rec:.4f})")
     print(f"[ICA]       ARI={ica_ari:.4f}  NMI={ica_nmi:.4f}  Silhouette={ica_sil:.4f}")
     print(f"\nSaved figures and metrics to: {outdir}/")
     print("Figures:")
