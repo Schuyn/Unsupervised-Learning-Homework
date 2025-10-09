@@ -1,0 +1,69 @@
+=== BRCA Data Preprocessing Summary ===
+Original shape: 445 samples × 359 columns
+Detected clinical columns: ['subtype', 'er_status', 'pr_status', 'her2_status', 'node', 'metastasis']
+Initial gene columns (before filtering): 353
+Total missing values filled (genes): 0
+Rows with any NA (genes): 0
+Genes with any NA: 0
+Low-variance genes removed (≤ 0.0001): 0
+Remaining genes after filtering: 353
+Final standardized data shape: (445, 353)
+
+Clinical variable summary:
+
+subtype (categorical):
+subtype
+Luminal A        200
+Luminal B        106
+Basal-like        79
+HER2-enriched     53
+Normal-like        7
+Name: count, dtype: int64
+
+er_status (categorical):
+er_status
+Positive                       339
+Negative                       100
+Performed but Not Available      2
+Indeterminate                    2
+Not Performed                    2
+Name: count, dtype: int64
+
+pr_status (categorical):
+pr_status
+Positive                       291
+Negative                       147
+Indeterminate                    3
+Performed but Not Available      2
+Not Performed                    2
+Name: count, dtype: int64
+
+her2_status (categorical):
+her2_status
+Negative         371
+Positive          65
+Equivocal          5
+Not Available      4
+Name: count, dtype: int64
+
+node (numeric):
+count    445.000000
+mean       0.727477
+std        0.867357
+min        0.000000
+25%        0.000000
+50%        1.000000
+75%        1.000000
+max        3.000000
+Name: node, dtype: float64
+
+metastasis (numeric):
+count    445.000000
+mean       0.025114
+std        0.155411
+min        0.000000
+25%        0.000000
+50%        0.000000
+75%        0.000000
+max        1.000000
+Name: metastasis, dtype: float64
