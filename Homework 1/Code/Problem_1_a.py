@@ -56,6 +56,48 @@ def plot_components(components, img_shape, n_show, title, outpath):
     plt.tight_layout()
     plt.savefig(outpath, bbox_inches='tight')
     plt.close()
+    
+def plot_pca_scree(explained_var_ratio, outpath):
+    """Scree plot: per-PC variance ratio + cumulative curve"""
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    r = np.array(explained_var_ratio)
+    cum = np.cumsum(r)
+
+    plt.figure(figsize=(7, 5), dpi=120)
+    # 每个主成分的解释方差
+    plt.plot(np.arange(1, len(r)+1), r, marker='o', linewidth=1)
+    # 累积解释方差
+    plt.plot(np.arange(1, len(r)+1), cum, marker='o', linestyle='--')
+    plt.xlabel("Principal Component")
+    plt.ylabel("Explained Variance Ratio")
+    plt.title("PCA Scree Plot (with Cumulative)")
+    plt.legend(["Per-PC", "Cumulative"])
+    plt.grid(alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(str(outpath), bbox_inches='tight')
+    plt.close()
+
+
+def plot_pca_topk_bar(explained_var_ratio, k, outpath):
+    """Bar chart for top-k PCs' explained variance ratio"""
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    r = np.array(explained_var_ratio)[:k]
+    idx = np.arange(1, len(r)+1)
+
+    plt.figure(figsize=(7, 4), dpi=120)
+    plt.bar(idx, r)
+    plt.xlabel("PC index")
+    plt.ylabel("Explained Variance Ratio")
+    plt.title(f"Top-{k} PCs Explained Variance")
+    plt.xticks(idx)
+    plt.tight_layout()
+    plt.savefig(str(outpath), bbox_inches='tight')
+    plt.close()
+
 
 
 def kmeans_scores(X2d, y, seed):
@@ -92,6 +134,13 @@ def run(seed=0, nmf_ks=(10, 15, 20), outdir="Homework 1/Latex"):
                     title="PCA Components (top 10)", outpath=f"{outdir}/pca_components.png")
 
     pca_ari, pca_nmi, pca_sil = kmeans_scores(X_pca_2, y, seed)
+    
+    pca_full = PCA(n_components=min(X.shape), random_state=seed).fit(X)
+    explained = pca_full.explained_variance_ratio_
+
+    plot_pca_scree(explained, Path(outdir) / "pca_scree.png")
+    plot_pca_topk_bar(explained, k=10, outpath=Path(outdir) / "pca_top10_var.png")
+
 
     # ----------------------------
     # NMF (grid over k), then 2D via PCA-on-W for visualization

@@ -1,0 +1,185 @@
+\documentclass[12pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath, amssymb, amsthm, bm}
+\usepackage{mathtools}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{color}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{multicol}
+\usepackage{fancyhdr}
+\usepackage{lastpage}
+\usepackage{pythonhighlight}
+\usepackage{subcaption} % 并列放图时可以分别打标签
+
+
+% 页边距
+\geometry{margin=1in}
+
+% 页眉页脚
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{STAT 5244 -- Unsupervised Learning}
+\rhead{HW1}
+\cfoot{\thepage\ of \pageref{LastPage}}
+
+% -------------------------------
+% 数学环境
+% -------------------------------
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}{Lemma}
+\newtheorem{definition}{Definition}
+\newtheorem{proposition}{Proposition}
+\newtheorem{remark}{Remark}
+
+% 向量/矩阵粗体
+\renewcommand{\vec}[1]{\bm{#1}}
+
+% -------------------------------
+% 代码高亮
+% -------------------------------
+\usepackage{listings}
+\lstset{
+  basicstyle=\ttfamily\small,
+  numbers=left,
+  numberstyle=\tiny,
+  stepnumber=1,
+  numbersep=5pt,
+  frame=single,
+  breaklines=true,
+  keywordstyle=\color{blue},
+  commentstyle=\color{gray},
+  stringstyle=\color{red},
+  tabsize=4
+}
+
+% -------------------------------
+% 文档开始
+% -------------------------------
+\begin{document}
+
+\begin{center}
+    {\Large \textbf{STAT 5244 -- Unsupervised Learning}}\\[6pt]
+    \textbf{Homework 1}\\[6pt]
+    Name: \underline{Chuyang Su} \quad UNI: \underline{cs4570}
+\end{center}
+
+\hrule
+\vspace{1em}
+
+% -------------------------------
+% Problem 1
+% -------------------------------
+\section{Dimension Reduction on Digits Data.}
+%-------------------------------
+% Problem 1a
+% -------------------------------
+\subsection{Apply linear dimension reduction techniques including PCA, NMF, and ICA.}
+In this experiment, I applied three linear dimension reduction methodsand compared their performance on the \texttt{scikit-learn} \textit{Digits} dataset ($n = 1797$, $p = 64$).  
+
+Each method projects the data into a two-dimensional latent space, on which I visualized the results and quantitatively evaluated their ability to separate the ten digit classes.
+
+The results of this experiment are summarized below.
+
+\begin{figure}[h!]
+    \centering
+    % --- PCA ---
+    \begin{subfigure}[t]{0.31\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{Results/Problem_1_a/pca_2d.png}
+        \caption{PCA}
+        \label{fig:pca-2d}
+    \end{subfigure}
+    % --- NMF ---
+    \begin{subfigure}[t]{0.31\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{Results/Problem_1_a/nmf_2d.png}
+        \caption{NMF$\rightarrow$PCA}
+        \label{fig:nmf-2d}
+    \end{subfigure}
+    % --- ICA ---
+    \begin{subfigure}[t]{0.31\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{Results/Problem_1_a/ica_2d.png}
+        \caption{ICA}
+        \label{fig:ica-2d}
+    \end{subfigure}
+
+    \caption{2D embeddings of the digits data using PCA, NMF$\rightarrow$PCA, and ICA. Colors denote true digit labels.}
+    \label{fig:linear-2d-all}
+\end{figure}
+
+\begin{table}[h!]
+    \centering
+    \begin{tabular}{lcccc}
+    \toprule
+    \textbf{Method} & \textbf{ARI} & \textbf{NMI} & \textbf{Silhouette}\\
+    \midrule
+    PCA & \textbf{0.3614} & \textbf{0.5190} & 0.3993 \\
+    NMF $\rightarrow$ PCA & 0.1588 & 0.2961 & \textbf{0.4080} \\
+    ICA & 0.3175 & 0.4567 & 0.3673 \\
+    \bottomrule
+    \end{tabular}
+    \caption{Quantitative comparison of linear dimension reduction methods. The best scores for each metric are bolded.}
+\end{table}
+
+%-------------------------------
+% PCA
+% -------------------------------
+\paragraph{PCA.}
+For PCA, I retained the first two principal components and projected the samples into the 2D subspace they span, which preserves the primary directions of variance. 
+As for hyperparameters, PCA has very few tunable parameters---the main one being the number of principal components.  
+For ease of visualization, I set the number of components to $2$ (PC=2) in this experiment.  
+Figure~\ref{fig:pca-2d} shows that the data are well dispersed, and digits such as 0, 3, 4, 6, and 9 form clearly separated clusters. Quantitatively, PCA achieved an ARI of 0.3614, an NMI of 0.5190, and a Silhouette score of 0.3993. 
+Except for the Silhouette score, PCA obtained the highest values among the three methods.  
+This indicates that PCA effectively separates the digits and maintains a high level of consistency with the true labels.  
+Although its Silhouette value (approximately 0.4) is not the highest, it still suggests reasonably compact and well-separated clusters.  
+This minor difference can be attributed to slight overlaps between neighboring clusters in the 2D embedding, even though the overall structure aligns well with the ground-truth classes.
+
+In addition to the 2D embedding, I plotted the PCA scree plot and a bar chart of the top ten principal components’ explained variance, as shown in Figure~\ref{fig:pca-var}.  
+Both plots reveal that the first three components contribute substantially more variance than the rest, with the third component explaining slightly less variance than the first two but significantly more than the fourth.  
+This supports the observation that the 2D projection loses some discriminative information, which explains why the best ARI achieved by PCA remains moderate (0.3614).  
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.45\textwidth]{Results/Problem_1_a/pca_scree.png}
+    \includegraphics[width=0.45\textwidth]{Results/Problem_1_a/pca_top10_var.png}
+    \caption{(Left) Scree plot showing the variance explained by each principal component; (Right) bar chart of the top-10 PCs' explained variance ratios.}
+    \label{fig:pca-var}
+\end{figure}
+
+Furthermore, I visualized the top ten PCA component images (Figure~\ref{fig:pca-components}), which illustrate the principal modes of variation across digits.  
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.9\textwidth]{Results/Problem_1_a/pca_components.png}
+    \caption{Top ten PCA components visualized as $8\times8$ basis images.}
+    \label{fig:pca-components}
+\end{figure}
+
+\paragraph{NMF.}
+
+
+
+
+
+
+
+
+
+
+
+\appendix
+\section{Appendix: Code Implementation}
+\begin{python}
+
+\end{python}
+
+
+\end{document}
