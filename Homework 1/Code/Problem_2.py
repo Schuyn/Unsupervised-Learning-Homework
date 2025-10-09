@@ -2,7 +2,7 @@
 Author: Chuyang Su cs4570@columbia.edu
 Date: 2025-10-09 13:41:38
 LastEditors: Schuyn 98257102+Schuyn@users.noreply.github.com
-LastEditTime: 2025-10-09 14:21:48
+LastEditTime: 2025-10-09 14:29:11
 FilePath: /Unsupervised-Learning-Homework/Homework 1/Code/Problem_2.py
 Description: 
     This data set consists of gene expression measurements for n = 445 breast cancer tumors and p = 353 genes taken from The Cancer Genome Atlas(TCGA). 
@@ -20,24 +20,6 @@ from sklearn.preprocessing import StandardScaler
 from pathlib import Path
 
 def load_and_preprocess_brca(data_path: str, var_threshold: float = 1e-4, report_path: str = None):
-    """
-    Load and preprocess the BRCA gene expression data and print/save a report.
-
-    Steps:
-      1) Read CSV with first column as sample ID index.
-      2) Normalize column names (trim, hyphen/space -> underscore, lower case).
-      3) Detect clinical columns robustly.
-      4) Split gene vs clinical data.
-      5) Missing-value report; impute genes by column median; clinical by mode/mean.
-      6) Low-variance filtering on genes with threshold var_threshold.
-      7) Standardize (Z-score) gene matrix.
-      8) Print and optionally save a preprocessing summary.
-
-    Returns:
-      X_scaled: np.ndarray of shape (n_samples, n_genes_kept)
-      y_clinical: pd.DataFrame of clinical variables
-      kept_genes: list of kept gene column names (after filtering, normalized form)
-    """
     # 1) Load with sample IDs in index
     df = pd.read_csv(data_path, index_col=0)
     n_samples_raw, n_cols_raw = df.shape
@@ -78,7 +60,6 @@ def load_and_preprocess_brca(data_path: str, var_threshold: float = 1e-4, report
     # Impute clinical: categorical by mode, numeric by mean
     for col in y_clinical.columns:
         if y_clinical[col].dtype == "O":
-            # mode may be empty if all-NaN; handle safely
             mode_vals = y_clinical[col].mode(dropna=True)
             fill_val = mode_vals.iloc[0] if not mode_vals.empty else "Unknown"
             y_clinical[col] = y_clinical[col].fillna(fill_val)
@@ -88,39 +69,24 @@ def load_and_preprocess_brca(data_path: str, var_threshold: float = 1e-4, report
     # Impute genes by column median (robust)
     X_df = X_df.fillna(X_df.median())
 
-    # 6) Low-variance filtering (threshold on variance)
-    var_series = X_df.var(axis=0)
-    keep_mask = var_series > var_threshold
-    kept_genes = var_series[keep_mask].index.tolist()
-    dropped_genes = var_series[~keep_mask].index.tolist()
-    n_dropped = len(dropped_genes)
-    print(f"Low-variance genes removed (≤ {var_threshold:g}): {n_dropped}")
-    print(f"Remaining genes after filtering: {keep_mask.sum()}")
-
-    X_df = X_df[kept_genes]
-
-    # 7) Standardize (Z-score)
+    # 6) Standardize (Z-score)
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X_df)
 
-    # 8) Build and optionally save summary report
+    # 7) Build and optionally save summary report
     summary_lines = [
         "=== BRCA Data Preprocessing Summary ===",
         f"Original shape: {n_samples_raw} samples × {n_cols_raw} columns",
         f"Detected clinical columns: {clinical_cols}",
-        f"Initial gene columns (before filtering): {len(gene_cols)}",
+        f"Initial gene columns: {len(gene_cols)}",
         f"Total missing values filled (genes): {n_missing_total}",
         f"Rows with any NA (genes): {n_rows_with_na}",
         f"Genes with any NA: {n_genes_with_na}",
-        f"Low-variance genes removed (≤ {var_threshold:g}): {n_dropped}",
-        f"Remaining genes after filtering: {X_df.shape[1]}",
         f"Final standardized data shape: {X_scaled.shape}",
-        "",
     ]
 
-    # --- Generate clinical summary by type ---
+    # --- Clinical summary by type ---
     summary_text = ["Clinical variable summary:"]
-
     for col in y_clinical.columns:
         if y_clinical[col].dtype == "O":
             counts = y_clinical[col].value_counts(dropna=False)
@@ -131,18 +97,17 @@ def load_and_preprocess_brca(data_path: str, var_threshold: float = 1e-4, report
             summary_text.append(f"\n{col} (numeric):")
             summary_text.append(str(desc))
 
-    # Join to main report
     report_text = "\n".join(summary_lines + ["\n".join(summary_text)])
+    print("\n" + report_text)
 
     if report_path is not None:
-        # Ensure parent directory exists
         report_dir = Path(report_path).parent
         report_dir.mkdir(parents=True, exist_ok=True)
         with open(report_path, "w", encoding="utf-8") as f:
             f.write(report_text)
         print(f"\nPreprocessing summary saved to {report_path}")
 
-    return X_scaled, y_clinical, kept_genes
+    return X_scaled, y_clinical, gene_cols
 
 
 if __name__ == "__main__":

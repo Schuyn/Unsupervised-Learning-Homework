@@ -1,14 +1,11 @@
 === BRCA Data Preprocessing Summary ===
 Original shape: 445 samples × 359 columns
 Detected clinical columns: ['subtype', 'er_status', 'pr_status', 'her2_status', 'node', 'metastasis']
-Initial gene columns (before filtering): 353
+Initial gene columns: 353
 Total missing values filled (genes): 0
 Rows with any NA (genes): 0
 Genes with any NA: 0
-Low-variance genes removed (≤ 0.0001): 0
-Remaining genes after filtering: 353
 Final standardized data shape: (445, 353)
-
 Clinical variable summary:
 
 subtype (categorical):
