@@ -163,8 +163,35 @@ Furthermore, I visualized the top ten PCA component images (Figure~\ref{fig:pca-
     \label{fig:pca-components}
 \end{figure}
 
-\paragraph{NMF.}
+\paragraph{NMF$\rightarrow$PCA.}
+For the NMF method, I first determined the optimal number of components by minimizing the reconstruction error, which yielded $k=20$. 
+This means the data were decomposed into 20 non-negative basis vectors. 
+The resulting coefficient matrix $W$ was then compressed into a 2D embedding space using PCA for visualization and comparison purposes, and the final result is shown in Figure~\ref{fig:linear-2d-all}(b).
 
+As observed in the plot, NMF fails to clearly separate the digits in the 2D space. 
+This is consistent with the quantitative results, where NMF achieved the lowest ARI (0.1588) and NMI (0.2961) among all methods. 
+These findings indicate that the NMF representation captures local, part-based features rather than global discriminative structures, and that the subsequent PCA compression may distort these part-based patterns, reducing the overall interpretability. 
+
+On the other hand, NMF obtained the highest Silhouette score (0.4080), slightly higher than PCA. 
+The embedding shows that nearly all samples are concentrated in the positive subspace, with only a small portion extending below zero (no less than $-0.2$). 
+Even after PCA compression, this non-negativity-induced structure is largely preserved, resulting in an asymmetric distribution that nevertheless exhibits slightly better cluster compactness than PCA. 
+This suggests that some of the features extracted by NMF may be better suited to local clustering in this dataset.
+In particular, compared to PCA, NMF tends to focus on localized regions of variation rather than global variance directions, which likely contributes to the formation of tighter, more compact clusters.
+
+Similar to the PCA case where excluding the third principal component led to a loss of explanatory power, it is plausible that the 2D projection of NMF also omits important structural information. 
+Specifically, the visualization reveals that the first principal component successfully separates digit ``4'' along the left margin, while the second principal component distinguishes digits ``9'' (light blue) and ``0'' from the rest of the samples, forming a clear boundary near the bottom region of the plot. 
+This indicates that the first PC primarily captures the unique pattern of the digit ``4'', whereas the second PC isolates the shapes shared by ``0'' and ``9''. 
+A potential 3D embedding including an additional principal component might further clarify the remaining overlapping clusters visible in the upper-right portion of the 2D space.
+
+Finally, I visualized the NMF basis components, as shown in Figure~\ref{fig:nmf-components}. 
+These components represent localized stroke-like patterns, providing an interpretable decomposition of the digits into additive parts.
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.9\textwidth]{Results/Problem_1_a/nmf_components.png}
+    \caption{Top ten PCA components visualized as $8\times8$ basis images.}
+    \label{fig:nmf-components}
+\end{figure}
 
 
 
