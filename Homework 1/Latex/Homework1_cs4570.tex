@@ -131,7 +131,7 @@ The results of this experiment are summarized below.
 
 %-------------------------------
 % PCA
-% -------------------------------
+% ------------------------------
 \paragraph{PCA.}
 For PCA, I retained the first two principal components and projected the samples into the 2D subspace they span, which preserves the primary directions of variance. 
 As for hyperparameters, PCA has very few tunable parameters---the main one being the number of principal components.  
@@ -194,14 +194,44 @@ These components represent localized stroke-like patterns, providing an interpre
 \end{figure}
 
 
+%-------------------------------
+% ICA
+% ------------------------------
+\paragraph{ICA.}
+For the ICA method, I applied FastICA with two components after standardizing the data to ensure consistent feature scaling. 
+As shown in Figure~\ref{fig:linear-2d-all}(c) and the summary table, ICA exhibits the most balanced overall performance among the three linear methods. 
+Some clusters---notably digits 4, 6, and 0---are well separated and relatively compact, outperforming both PCA and NMF in local structure preservation. 
+However, the remaining digits appear more mixed than in PCA, though less dispersed than in NMF. 
+Visually, the embedding forms two major groups: one consisting primarily of digits 4, 6, and 0, and another containing the other seven digits.
 
+Quantitatively, ICA’s ARI (0.3175) and NMI (0.4567) values lie between those of PCA and NMF, while its Silhouette score (0.3673) is the lowest among the three. 
+This aligns with the visual interpretation: ICA achieves moderate global separability but weaker overall cluster compactness.
 
+Regarding hyperparameters, ICA provides limited tuning options. Here I set \\
+\texttt{components}=2, reducing the data to a 2D space, and standardized all features prior to decomposition. 
+Standardization is a conventional preprocessing step for ICA, as its underlying assumption relies on statistical independence between components. 
+Consequently, the resulting embedding appears nearly spherical and centered around the origin---a distribution consistent with ICA’s model assumptions but inconsistent with the inherent non-spherical structure of handwritten digits. 
+This mismatch explains the weaker performance of ICA in this task.
 
+Finally, the ICA component images (Figure~\ref{fig:ica-components}) reveal contrast-like and edge-detecting patterns that emphasize stroke boundaries, differing from the smoother, global variations captured by PCA and the localized parts extracted by NMF.
 
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.9\textwidth]{Results/Problem_1_a/ica_components.png}
+    \caption{Top ten PCA components visualized as $8\times8$ basis images.}
+    \label{fig:ica-components}
+\end{figure}
 
+%-------------------------------
+% Conclusion
+% ------------------------------
+\paragraph{Overall Discussion.}
+In summary, among the three linear dimension reduction techniques, PCA stands out as the most effective approach. 
+It achieved the highest ARI (0.3614) and NMI (0.5190), and a Silhouette score (0.3993) close to the best. 
+Visually, PCA produced the clearest and most interpretable clusters in the 2D embedding, separating several digits (such as 0, 3, 4, 6, and 9) distinctly. 
+Given that PCA captures global variance directions, its performance would likely improve further in higher-dimensional embeddings, where additional components could better preserve discriminative variance. 
 
-
-
+\newpage
 \appendix
 \section{Appendix: Code Implementation}
 \begin{python}
