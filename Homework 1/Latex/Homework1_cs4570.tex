@@ -80,7 +80,7 @@
 %-------------------------------
 % Problem 1a
 % ------------------------------
-\subsection{Apply linear dimension reduction techniques including PCA, NMF, and ICA.}
+\subsection{Apply linear dimension reduction techniques.}
 In this experiment, I applied three linear dimension reduction methodsand compared their performance on the \texttt{scikit-learn} \textit{Digits} dataset ($n = 1797$, $p = 64$).  
 
 Each method projects the data into a two-dimensional latent space, on which I visualized the results and quantitatively evaluated their ability to separate the ten digit classes.
@@ -231,6 +231,23 @@ It achieved the highest ARI (0.3614) and NMI (0.5190), and a Silhouette score (0
 Visually, PCA produced the clearest and most interpretable clusters in the 2D embedding, separating several digits (such as 0, 3, 4, 6, and 9) distinctly. 
 Given that PCA captures global variance directions, its performance would likely improve further in higher-dimensional embeddings, where additional components could better preserve discriminative variance. 
 
+%-------------------------------
+% Problem 1b
+% ------------------------------
+\subsection{Apply manifold learning approaches.}
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -239,6 +256,76 @@ Given that PCA captures global variance directions, its performance would likely
 % Problem 2
 % -------------------------------
 \section{Open-Ended Data Analysis - Breast Cancer gene expression data.}
+\subsection{Preprocessing}
+After loading the data (shape $445\times359$), six clinical columns were identified: \texttt{subtype}, \texttt{er\_status}, \texttt{pr\_status}, \texttt{her2\_status}, \texttt{node}, and \texttt{metastasis}, leaving $353$ gene expression features. 
+No missing values or zero-variance genes were found, indicating high data quality. 
+Each gene feature was standardized via Z-score normalization. 
+Descriptive statistics of the clinical variables are summarized below:
+
+\begin{itemize}
+    \item \textbf{Subtype:} Luminal~A (200), Luminal~B (106), Basal-like (79), HER2-enriched (53), Normal-like (7).
+    \item \textbf{ER-Status:} Positive (339), Negative (100), Performed but Not Available (2), Indeterminate (2), Not Performed (2).
+    \item \textbf{PR-Status:} Positive (291), Negative (147), Indeterminate (3), Performed but Not Available (2), Not Performed (2).
+    \item \textbf{HER2-Status:} Negative (371), Positive (65), Equivocal (5), Not Available (4).
+    \item \textbf{Node:} mean = 0.73, std = 0.87, range = [0, 3].
+    \item \textbf{Metastasis:} mean = 0.025, std = 0.155 (mostly non-metastatic samples).
+\end{itemize}
+
+\subsection{Methodology}
+Five dimension reduction methods were applied to the standardized gene expression matrix to obtain two-dimensional embeddings:
+\begin{enumerate}
+    \item \textbf{Principal Component Analysis (PCA)} --- linear orthogonal projection capturing maximal variance.
+    \item \textbf{Non-negative Matrix Factorization (NMF)} --- parts-based representation using non-negative constraints (run on non-standardized data to ensure non-negativity).
+    \item \textbf{Spectral Embedding} --- manifold learning based on graph Laplacian eigenvectors.
+    \item \textbf{t-SNE} --- nonlinear embedding preserving local neighborhood structures.
+    \item \textbf{UMAP} --- manifold approximation balancing local and global relationships.
+\end{enumerate}
+
+Each embedding was visualized by coloring the points according to all six available clinical variables.  
+However, for brevity and visual clarity, only the results colored by \textbf{Subtype} are shown here as representative examples.  
+This selection illustrates overall trends while the complete set of figures (for all six variables across all five methods) is provided in the supplementary materials.
+
+To quantitatively evaluate clustering quality with respect to molecular subtypes, $k$-means clustering ($k=5$) was applied to each embedding, and three metrics were computed: Adjusted Rand Index (ARI), Normalized Mutual Information (NMI), and Silhouette coefficient.
+
+
+\subsection{Results}
+
+Overall, nonlinear manifold-based methods (t-SNE and UMAP) outperformed linear approaches in terms of ARI and NMI, suggesting that the underlying structure of gene expression data is highly nonlinear. 
+UMAP achieved the highest Silhouette score (0.44), indicating that it produces well-separated clusters with clear boundaries, while t-SNE yielded the best ARI (0.21) and NMI (0.27), showing the strongest alignment with the known PAM50 subtypes. 
+PCA achieved moderate performance, confirming its ability to preserve global variance but limited capacity to capture complex nonlinear relations. 
+NMF performed comparably, producing slightly denser local clusters (reflected in its higher Silhouette score) but weaker subtype separation. 
+Spectral embedding produced the most compact clusters but with limited biological interpretability due to its sensitivity to graph construction.
+
+\begin{table}[h!]
+\centering\begin{tabular}{lccc}
+\toprule
+\textbf{Method} & \textbf{ARI} & \textbf{NMI} & \textbf{Silhouette} \\
+\midrule
+PCA & 0.1857 & 0.2399 & 0.3311 \\
+NMF & 0.1712 & 0.2536 & 0.3842 \\
+Spectral & 0.1421 & 0.2300 & 0.4020 \\
+t-SNE & \textbf{0.2074} & \textbf{0.2704} & 0.3984 \\
+UMAP & 0.2028 & 0.2780 & \textbf{0.4376} \\
+\bottomrule
+\end{tabular}
+\caption{Quantitative comparison of five dimension reduction methods on the BRCA dataset. Evaluation is based on clustering alignment with PAM50 subtypes ($k=5$).}
+\end{table}
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.32\textwidth]{Results/Problem_2/PCA_subtype.png}
+    \includegraphics[width=0.32\textwidth]{Results/Problem_2/NMF_subtype.png}
+    \includegraphics[width=0.32\textwidth]{Results/Problem_2/Spectral_subtype.png}
+    \includegraphics[width=0.32\textwidth]{Results/Problem_2/tSNE_subtype.png}
+    \includegraphics[width=0.32\textwidth]{Results/Problem_2/UMAP_subtype.png}
+    \caption{Two-dimensional embeddings of the BRCA gene expression data using five methods (PCA, NMF, Spectral, t-SNE, and UMAP), colored by molecular Subtype. All embeddings were also generated for the remaining five clinical variables, but only Subtype-colored results are displayed here for clarity.}
+\end{figure}
+
+\subsection{Discussion}
+Given that no missing or low-variance genes were present, preprocessing had minimal impact on the raw data distribution. 
+The observed performance differences mainly stem from the intrinsic characteristics of each method. 
+The superior performance of UMAP and t-SNE suggests that manifold learning effectively captures nonlinear relationships among gene expressions that correspond to known molecular subtypes.
+Future work could extend this analysis by increasing latent dimensionality or incorporating autoencoders for deeper nonlinear representations.
 
 
 

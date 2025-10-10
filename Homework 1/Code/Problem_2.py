@@ -1,8 +1,8 @@
 '''
 Author: Chuyang Su cs4570@columbia.edu
 Date: 2025-10-09 13:41:38
-LastEditors: Schuyn 98257102+Schuyn@users.noreply.github.com
-LastEditTime: 2025-10-09 14:43:31
+LastEditors: Please set LastEditors
+LastEditTime: 2025-10-09 21:33:31
 FilePath: /Unsupervised-Learning-Homework/Homework 1/Code/Problem_2.py
 Description: 
     This data set consists of gene expression measurements for n = 445 breast cancer tumors and p = 353 genes taken from The Cancer Genome Atlas(TCGA). 
@@ -267,13 +267,11 @@ def load_and_preprocess_brca(data_path: str, var_threshold: float = 1e-4, report
     return X_scaled, y_clinical, gene_cols
 
 def run_embedding(X, method='pca', n_components=2, seed=0, **kwargs):
-    """返回 2D 嵌入 (n_samples, 2) 和方法名"""
     method = method.lower()
     if method == 'pca':
         model = PCA(n_components=n_components, random_state=seed)
         name = 'PCA'
     elif method == 'nmf':
-        # 直接 2D NMF 仅用于可视化；你也可以改成 NMF(k)->PCA(2)
         model = NMF(n_components=n_components, init='nndsvda', random_state=seed, max_iter=1000)
         name = 'NMF'
     elif method == 'tsne':
@@ -293,7 +291,6 @@ def run_embedding(X, method='pca', n_components=2, seed=0, **kwargs):
 
 
 def _encode_categories(series):
-    """把分类标签编码成 0..K-1，返回 colors_idx 和 类别->颜色索引的映射"""
     cats = series.astype(str).fillna("NA").values
     uniq = sorted(np.unique(cats))
     mapping = {c: i for i, c in enumerate(uniq)}
@@ -302,7 +299,6 @@ def _encode_categories(series):
 
 
 def plot_embedding(X2d, meta, hue_col, title, outpath):
-    """仅用 matplotlib 画散点（避免 seaborn 依赖问题）"""
     outpath = Path(outpath)
     outpath.parent.mkdir(parents=True, exist_ok=True)
 
@@ -314,7 +310,6 @@ def plot_embedding(X2d, meta, hue_col, title, outpath):
     sc = plt.scatter(X2d[:,0], X2d[:,1], c=idx, s=14, cmap=cmap, alpha=0.85, edgecolors='none')
     plt.title(f"{title} embedding colored by {hue_col}")
     plt.xlabel("Dim 1"); plt.ylabel("Dim 2")
-    # 手工图例
     handles = [plt.Line2D([0],[0], marker='o', linestyle='',
                           markersize=6, markerfacecolor=cmap(i), markeredgecolor='none')
                for i in range(len(mapping))]
@@ -326,13 +321,10 @@ def plot_embedding(X2d, meta, hue_col, title, outpath):
 
 
 def evaluate_embedding(X2d, subtype_series, seed=0):
-    """在嵌入上做 KMeans(k=5)，计算 ARI/NMI/Silhouette（参考 Subtype）"""
-    # 只用有 Subtype 的样本
     mask = subtype_series.notna()
     X_eval = X2d[mask.values]
     y_ref = subtype_series[mask].astype(str).values
 
-    # KMeans 聚类
     km = KMeans(n_clusters=5, random_state=seed, n_init=10)
     pred = km.fit_predict(X_eval)
 
