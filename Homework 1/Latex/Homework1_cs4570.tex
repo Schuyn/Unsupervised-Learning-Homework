@@ -236,21 +236,72 @@ Given that PCA captures global variance directions, its performance would likely
 % ------------------------------
 \subsection{Apply manifold learning approaches.}
 
+\paragraph{Methodology}
+Each model was configured with typical hyperparameters and applied to the same standardized input features. 
+The detailed settings are summarized below:
+\begin{itemize}
+    \item \textbf{Kernel PCA (RBF)} --- RBF kernel with $\gamma=0.102$, chosen automatically based on the median pairwise distance.
+    \item \textbf{Spectral Embedding} --- Laplacian eigenmap–based manifold embedding with \\
+     $n_\text{neighbors}=10$.
+    \item \textbf{Classical MDS} --- Closed-form double-centered Euclidean distance eigendecomposition.
+    \item \textbf{Metric MDS} --- Stress minimization–based metric scaling via gradient descent.
+    \item \textbf{t-SNE} --- Perplexity of 30, PCA initialization, adaptive learning rate.
+    \item \textbf{UMAP} --- $n_\text{neighbors}=15$, $\text{min\_dist}=0.1$.
+    \item \textbf{Autoencoder (PyTorch)} --- Fully connected symmetric architecture with input 64, hidden layer 32, bottleneck dimension 2, ReLU activations, sigmoid reconstruction, trained for 50 epochs with batch size 128 and learning rate $10^{-3}$.
+\end{itemize}
+All embeddings were evaluated in 2D using $k$-means clustering ($k=10$) with three quantitative metrics: Adjusted Rand Index (ARI), Normalized Mutual Information (NMI), and Silhouette coefficient.
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.24\textwidth]{Results/Problem_1_b/kpca_2d.png}
+    \includegraphics[width=0.24\textwidth]{Results/Problem_1_b/spectral_2d.png}
+    \includegraphics[width=0.24\textwidth]{Results/Problem_1_b/classical_mds_2d.png}
+    \includegraphics[width=0.24\textwidth]{Results/Problem_1_b/metric_mds_2d.png}
+    \caption{2D embeddings of the digits dataset using kernel PCA, spectral embedding, classical mds and metric mds.}
+\end{figure}
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.31\textwidth]{Results/Problem_1_b/tsne_2d.png}
+    \includegraphics[width=0.31\textwidth]{Results/Problem_1_b/umap_2d.png}
+    \includegraphics[width=0.31\textwidth]{Results/Problem_1_b/autoencoder_2d.png}
+    \caption{2D embeddings of the digits dataset using t-SNE, UMAP and Pytorch Autoencoder.}
+\end{figure}
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{lccc}
+\toprule
+\textbf{Method} & \textbf{ARI} & \textbf{NMI} & \textbf{Silhouette} \\
+\midrule
+Kernel PCA & 0.0511 & 0.3357 & \textbf{0.7541} \\
+Spectral Embedding & 0.4730 & 0.6681 & 0.6119 \\
+Classical MDS & 0.3262 & 0.4647 & 0.3771 \\
+Metric MDS & 0.3461 & 0.4722 & 0.3503 \\
+t-SNE & 0.7695 & 0.8339 & 0.5731 \\
+UMAP & \textbf{0.8662} & \textbf{0.8912} & 0.6866 \\
+Autoencoder & 0.3476 & 0.4992 & 0.3958 \\
+\bottomrule
+\end{tabular}
+\caption{Quantitative comparison of seven embedding methods on the digits dataset ($k=10$).}
+\end{table}
 
 
+\paragraph{Discussion}
+The quantitative results and visualizations reveal clear distinctions among methods.  
+UMAP and t-SNE perform best overall, yielding the strongest alignment with true digit labels—UMAP achieves the highest ARI (0.866) and NMI (0.891), while t-SNE produces similarly well-separated and visually coherent clusters.  
+Spectral Embedding captures both global and local structures but exhibits partial overlap between classes.  
+Kernel PCA attains the highest Silhouette score (0.754), reflecting locally compact but label-misaligned clusters, whereas Classical and Metric MDS show limited nonlinear capacity.  
+The autoencoder provides a moderate nonlinear representation (ARI ≈ 0.35, NMI ≈ 0.50), illustrating its potential but also the constraint of a shallow 2D bottleneck.  
+Overall, UMAP and t-SNE best uncover the intrinsic manifold structure of handwritten digits, highlighting the strength of nonlinear embedding methods in revealing meaningful low-dimensional organization in high-dimensional data.
 
-
-
-
-
-
-
-
-
-
-
-
-
+%-------------------------------
+% Problem 1c
+% ------------------------------
+\subsection{Discussion}
+Nonlinear manifold methods such as \textbf{UMAP} and \textbf{t-SNE} outperform linear approaches because they better preserve both local neighborhood relationships and global manifold geometry, thus capturing the intrinsic nonlinear structure of handwritten digits.  
+Among all methods, \textbf{UMAP} performs best, achieving the highest ARI (0.866) and NMI (0.891) while forming compact and well-separated clusters that closely align with true digit classes.  
+The most representative visualization is the \textbf{UMAP 2D embedding}, which clearly displays ten distinct clusters corresponding to the ten digits.
 
 % -------------------------------
 % Problem 2
@@ -328,17 +379,903 @@ The superior performance of UMAP and t-SNE suggests that manifold learning effec
 Future work could extend this analysis by increasing latent dimensionality or incorporating autoencoders for deeper nonlinear representations.
 
 
-
-
-
-
-
+% -------------------------------
+% Code
+% -------------------------------
 \newpage
 \appendix
 \section{Appendix: Code Implementation}
+\subsection{Problem 1a.}
 \begin{python}
+'''
+Author: Chuyang Su cs4570@columbia.edu
+Date: 2025-10-08 17:16:54
+LastEditTime: 2025-10-08 18:21:50
+FilePath: /Unsupervised-Learning-Homework/Homework 1/Code/Problem_1_a.py
+Description: 
+    This is the code part of GR5244 Unsupervised Learning Homework 1 Part 1a.
+'''
+import argparse
+import os
+from pathlib import Path
 
+import numpy as np
+import matplotlib.pyplot as plt
+
+from sklearn.datasets import load_digits
+from sklearn.decomposition import PCA, NMF, FastICA
+from sklearn.cluster import KMeans
+from sklearn.metrics import adjusted_rand_score, normalized_mutual_info_score, silhouette_score
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import make_pipeline
+import csv
+
+
+# ----------------------------
+# Utils
+# ----------------------------
+def ensure_dir(p):
+    Path(p).mkdir(parents=True, exist_ok=True)
+
+def plot_embedding(X2d, y, title, outpath):
+    plt.figure(figsize=(6, 5), dpi=120)
+    scatter = plt.scatter(X2d[:, 0], X2d[:, 1], c=y, s=12, cmap='tab10', alpha=0.9, edgecolors='none')
+    plt.title(title)
+    plt.xlabel("Dim 1")
+    plt.ylabel("Dim 2")
+    cbar = plt.colorbar(scatter, ticks=range(10))
+    cbar.set_label("Digit label")
+    plt.tight_layout()
+    plt.savefig(outpath, bbox_inches='tight')
+    plt.close()
+
+
+def plot_components(components, img_shape, n_show, title, outpath):
+    n = min(n_show, components.shape[0])
+    cols = 10 if n >= 10 else n
+    rows = int(np.ceil(n / cols))
+    plt.figure(figsize=(1.4*cols, 1.4*rows), dpi=120)
+    for i in range(n):
+        ax = plt.subplot(rows, cols, i + 1)
+        ax.imshow(components[i].reshape(img_shape), cmap='gray')
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.set_title(f"{i+1}", fontsize=8)
+    plt.suptitle(title, y=1.02)
+    plt.tight_layout()
+    plt.savefig(outpath, bbox_inches='tight')
+    plt.close()
+    
+def plot_pca_scree(explained_var_ratio, outpath):
+    """Scree plot: per-PC variance ratio + cumulative curve"""
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    r = np.array(explained_var_ratio)
+    cum = np.cumsum(r)
+
+    plt.figure(figsize=(7, 5), dpi=120)
+    # 每个主成分的解释方差
+    plt.plot(np.arange(1, len(r)+1), r, marker='o', linewidth=1)
+    # 累积解释方差
+    plt.plot(np.arange(1, len(r)+1), cum, marker='o', linestyle='--')
+    plt.xlabel("Principal Component")
+    plt.ylabel("Explained Variance Ratio")
+    plt.title("PCA Scree Plot (with Cumulative)")
+    plt.legend(["Per-PC", "Cumulative"])
+    plt.grid(alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(str(outpath), bbox_inches='tight')
+    plt.close()
+
+
+def plot_pca_topk_bar(explained_var_ratio, k, outpath):
+    """Bar chart for top-k PCs' explained variance ratio"""
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    r = np.array(explained_var_ratio)[:k]
+    idx = np.arange(1, len(r)+1)
+
+    plt.figure(figsize=(7, 4), dpi=120)
+    plt.bar(idx, r)
+    plt.xlabel("PC index")
+    plt.ylabel("Explained Variance Ratio")
+    plt.title(f"Top-{k} PCs Explained Variance")
+    plt.xticks(idx)
+    plt.tight_layout()
+    plt.savefig(str(outpath), bbox_inches='tight')
+    plt.close()
+
+
+
+def kmeans_scores(X2d, y, seed):
+    km = KMeans(n_clusters=10, n_init='auto', random_state=seed)
+    labels = km.fit_predict(X2d)
+    ari = adjusted_rand_score(y, labels)
+    nmi = normalized_mutual_info_score(y, labels)
+    sil = silhouette_score(X2d, labels)
+    return ari, nmi, sil
+
+
+# ----------------------------
+# Main pipeline for 1(a)
+# ----------------------------
+def run(seed=0, nmf_ks=(10, 15, 20), outdir="Homework 1/Latex"):
+    ensure_dir(outdir)
+
+    # Load data
+    digits = load_digits()
+    X = digits.data.astype(float)
+    y = digits.target
+    img_shape = (8, 8)
+
+    # ----------------------------
+    # PCA (2D embedding + components)
+    # ----------------------------
+    pca_2 = PCA(n_components=2, random_state=seed)
+    X_pca_2 = pca_2.fit_transform(X)
+    plot_embedding(X_pca_2, y, "PCA (2D)", f"{outdir}/pca_2d.png")
+
+    # For components visualization, use more PCs (e.g., 10)
+    pca_10 = PCA(n_components=10, random_state=seed).fit(X)
+    plot_components(pca_10.components_, img_shape, n_show=10,
+                    title="PCA Components (top 10)", outpath=f"{outdir}/pca_components.png")
+
+    pca_ari, pca_nmi, pca_sil = kmeans_scores(X_pca_2, y, seed)
+    
+    pca_full = PCA(n_components=min(X.shape), random_state=seed).fit(X)
+    explained = pca_full.explained_variance_ratio_
+
+    plot_pca_scree(explained, Path(outdir) / "pca_scree.png")
+    plot_pca_topk_bar(explained, k=10, outpath=Path(outdir) / "pca_top10_var.png")
+
+
+    # ----------------------------
+    # NMF (grid over k), then 2D via PCA-on-W for visualization
+    # ----------------------------
+    X_nonneg = X - X.min() if X.min() < 0 else X
+    best_nmf = None
+    best_rec = np.inf
+    best_k = None
+
+    for k in nmf_ks:
+        nmf = NMF(n_components=k, init='nndsvda', random_state=seed, max_iter=1000)
+        W = nmf.fit_transform(X_nonneg)
+        rec = nmf.reconstruction_err_
+        if rec < best_rec:
+            best_rec = rec
+            best_nmf = nmf
+            best_k = k
+
+    # Use the best NMF
+    W_best = best_nmf.transform(X_nonneg)  # (n_samples, best_k)
+    # Reduce W to 2D for visualization
+    nmf_to2 = PCA(n_components=2, random_state=seed)
+    X_nmf_2 = nmf_to2.fit_transform(W_best)
+    plot_embedding(X_nmf_2, y, f"NMF -> PCA (2D)  [k={best_k}]", f"{outdir}/nmf_2d.png")
+
+    # Visualize NMF basis (H)
+    plot_components(best_nmf.components_, img_shape, n_show=10,
+                    title=f"NMF Basis (k={best_k}, show 10)", outpath=f"{outdir}/nmf_components.png")
+
+    nmf_ari, nmf_nmi, nmf_sil = kmeans_scores(X_nmf_2, y, seed)
+
+    # ----------------------------
+    # ICA (2D embedding + components)
+    # ----------------------------
+    ica_pipeline = make_pipeline(StandardScaler(with_std=True), FastICA(n_components=2, random_state=seed, max_iter=1000))
+    X_ica_2 = ica_pipeline.fit_transform(X)
+    plot_embedding(X_ica_2, y, "ICA (2D)", f"{outdir}/ica_2d.png")
+
+    # For components display, fit a separate ICA with more comps (e.g., 10) on standardized X
+    scaler = StandardScaler(with_std=True)
+    X_std = scaler.fit_transform(X)
+    ica_10 = FastICA(n_components=10, random_state=seed, max_iter=1000).fit(X_std)
+    plot_components(ica_10.mixing_.T, img_shape, n_show=10,  # mixing_.T ≈ component “images”
+                    title="ICA Components (10)", outpath=f"{outdir}/ica_components.png")
+
+    ica_ari, ica_nmi, ica_sil = kmeans_scores(X_ica_2, y, seed)
+
+    # ----------------------------
+    # Save metrics
+    # ----------------------------
+    metrics_path = f"{outdir}/part1a_metrics.csv"
+    with open(metrics_path, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["Method", "Params", "ARI", "NMI", "Silhouette", "Notes"])
+        writer.writerow(["PCA", "n_components=2", f"{pca_ari:.4f}", f"{pca_nmi:.4f}", f"{pca_sil:.4f}", "2D embedding"])
+        writer.writerow(["NMF -> PCA", f"k={best_k}, then 2D PCA", f"{nmf_ari:.4f}", f"{nmf_nmi:.4f}", f"{nmf_sil:.4f}",
+                         f"best reconstruction k among {list(nmf_ks)} (err={best_rec:.4f})"])
+        writer.writerow(["ICA", "n_components=2 (with standardization)", f"{ica_ari:.4f}", f"{ica_nmi:.4f}", f"{ica_sil:.4f}", "2D embedding"])
+
+    # Also print a neat summary
+    print("\n=== Part 1(a) — Linear Methods on Digits ===")
+    print(f"[PCA]       ARI={pca_ari:.4f}  NMI={pca_nmi:.4f}  Silhouette={pca_sil:.4f}")
+    print(f"[NMF -> PCA]   ARI={nmf_ari:.4f}  NMI={nmf_nmi:.4f}  Silhouette={nmf_sil:.4f}  (best k={best_k}, recon_err={best_rec:.4f})")
+    print(f"[ICA]       ARI={ica_ari:.4f}  NMI={ica_nmi:.4f}  Silhouette={ica_sil:.4f}")
+    print(f"\nSaved figures and metrics to: {outdir}/")
+    print("Figures:")
+    print(" - pca_2d.png, pca_components.png")
+    print(" - nmf_2d.png, nmf_components.png")
+    print(" - ica_2d.png, ica_components.png")
+    print("Table:")
+    print(f" - {Path(metrics_path).name}")
+
+
+# ----------------------------
+# Entry
+# ----------------------------
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--seed", type=int, default=25)
+    parser.add_argument("--outdir", type=str, default="Homework 1/Latex/Results/Problem_1_a")
+    parser.add_argument("--nmf_ks", type=int, nargs="+", default=[10, 15, 20])
+    args = parser.parse_args()
+    run(seed=args.seed, nmf_ks=tuple(args.nmf_ks), outdir=args.outdir)
 \end{python}
 
+\subsection{Problem 1b.}
+\begin{python}
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Author: Chuyang Su <cs4570@columbia.edu>
+Date: 2025-10-10
+FilePath: /Unsupervised-Learning-Homework/Homework 1/Code/Problem_1_b.py
+Description:
+    GR5244 HW1 Part 1(b): Manifold learning on sklearn digits (n=1797, p=64).
+        Methods: Kernel PCA, Spectral Embedding, Classical MDS, Metric MDS, t-SNE, UMAP, Autoencoder.
+"""
 
+from pathlib import Path
+import argparse
+import numpy as np
+import matplotlib.pyplot as plt
+
+from sklearn.datasets import load_digits
+from sklearn.preprocessing import StandardScaler,MinMaxScaler
+from sklearn.decomposition import KernelPCA
+from sklearn.manifold import SpectralEmbedding, MDS, TSNE
+from sklearn.metrics import adjusted_rand_score, normalized_mutual_info_score, silhouette_score, pairwise_distances
+from sklearn.cluster import KMeans
+import umap
+
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import TensorDataset, DataLoader
+# ----------------------------
+# Utils
+# ----------------------------
+def ensure_dir(p):
+    Path(p).mkdir(parents=True, exist_ok=True)
+    
+def set_seed(seed: int):
+    import random, os
+    random.seed(seed); np.random.seed(seed)
+    torch.manual_seed(seed); torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+def get_device():
+    return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+def plot_embedding(X2d, y, title, outpath):
+    """Simple 2D scatter with digits colormap; no axes ticks; safe colormap API."""
+    cmap = plt.colormaps.get_cmap('tab10')
+    plt.figure(figsize=(6, 5), dpi=120)
+    sc = plt.scatter(X2d[:, 0], X2d[:, 1], c=y, s=12, cmap=cmap, alpha=0.9, edgecolors='none')
+    plt.title(title)
+    plt.xlabel("Dim 1"); plt.ylabel("Dim 2")
+    cbar = plt.colorbar(sc, ticks=range(10))
+    cbar.set_label("Digit label")
+    plt.tight_layout()
+    plt.savefig(outpath, bbox_inches='tight')
+    plt.close()
+
+
+def kmeans_scores(X2d, y, seed, k=10):
+    km = KMeans(n_clusters=k, random_state=seed, n_init=10)
+    labels = km.fit_predict(X2d)
+    ari = adjusted_rand_score(y, labels)
+    nmi = normalized_mutual_info_score(y, labels)
+    sil = silhouette_score(X2d, labels)
+    return ari, nmi, sil
+
+
+def classical_mds(X, n_components=2):
+    """
+    Classical MDS (Torgerson/Gower): eigendecomposition of double-centered
+    squared-distance matrix. Returns low-d coords (can be rotated/reflected).
+    """
+    D = pairwise_distances(X, metric='euclidean')
+    D2 = D ** 2
+    n = D2.shape[0]
+    J = np.eye(n) - np.ones((n, n)) / n
+    B = -0.5 * J @ D2 @ J
+    # Eigen-decomposition
+    evals, evecs = np.linalg.eigh(B)
+    # Take top components
+    idx = np.argsort(evals)[::-1]
+    evals = evals[idx]; evecs = evecs[:, idx]
+    # Keep only positive eigenvalues
+    pos = evals > 0
+    evals = evals[pos]; evecs = evecs[:, pos]
+    evals_k = evals[:n_components]
+    evecs_k = evecs[:, :n_components]
+    X_emb = evecs_k * np.sqrt(np.maximum(evals_k, 0))
+    return X_emb
+
+
+def auto_gamma_rbf(X):
+    """
+    Heuristic gamma for RBF kernel (Kernel PCA): gamma = 1 / median(pairwise distance).
+    Scale-robust; avoids manual guesswork when not provided.
+    """
+    d = pairwise_distances(X, metric='euclidean')
+    med = np.median(d)
+    if med <= 0:
+        return 1.0
+    return 1.0 / med
+
+# Autoencoder
+
+class AE(nn.Module):
+    def __init__(self, input_dim: int, hidden: int = 32, bottleneck: int = 2):
+        super().__init__()
+        self.encoder = nn.Sequential(
+            nn.Linear(input_dim, hidden),
+            nn.ReLU(),
+            nn.Linear(hidden, bottleneck)  # 线性瓶颈，便于可视化
+        )
+        self.decoder = nn.Sequential(
+            nn.Linear(bottleneck, hidden),
+            nn.ReLU(),
+            nn.Linear(hidden, input_dim),
+            nn.Sigmoid()  # 配合 [0,1] 输入，重构更稳定
+        )
+
+    def forward(self, x):
+        z = self.encoder(x)
+        xhat = self.decoder(z)
+        return xhat, z
+
+
+@torch.no_grad()
+def encode_dataset(model: AE, loader: DataLoader, device):
+    model.eval()
+    zs = []
+    for (xb,) in loader:
+        xb = xb.to(device)
+        _, z = model(xb)
+        zs.append(z.cpu().numpy())
+    return np.concatenate(zs, axis=0)
+
+
+def train_autoencoder_pytorch(
+    X_minmax: np.ndarray,
+    seed: int = 0,
+    hidden: int = 32,
+    bottleneck: int = 2,
+    epochs: int = 50,
+    batch_size: int = 128,
+    lr: float = 1e-3,
+):
+    set_seed(seed)
+    device = get_device()
+
+    X_tensor = torch.tensor(X_minmax, dtype=torch.float32)
+    ds = TensorDataset(X_tensor)
+    dl = DataLoader(ds, batch_size=batch_size, shuffle=True, drop_last=False)
+
+    model = AE(input_dim=X_minmax.shape[1], hidden=hidden, bottleneck=bottleneck).to(device)
+    opt = optim.Adam(model.parameters(), lr=lr)
+    crit = nn.MSELoss()
+    model.train()
+    for _ in range(epochs):
+        for (xb,) in dl:
+            xb = xb.to(device)
+            xhat, _ = model(xb)
+            loss = crit(xhat, xb)
+            opt.zero_grad()
+            loss.backward()
+            opt.step()
+
+    # 推理阶段：得到 2D 嵌入
+    # 复用同一个 DataLoader 保持顺序一致
+    Z = encode_dataset(model, DataLoader(ds, batch_size=1024, shuffle=False), device)
+    return Z
+
+
+# ----------------------------
+# Main pipeline for 1(b)
+# ----------------------------
+def run(seed=25,
+        outdir="Homework 1/Latex/Results/Problem_1_b",
+        kpca_gamma=None,
+        spectral_n_neighbors=10,
+        tsne_perplexity=30,
+        umap_n_neighbors=15,
+        umap_min_dist=0.1,
+        ae_hidden=32,
+        ae_epochs=50,
+        ae_batch=128,
+        ae_lr=1e-3):
+    set_seed(seed)
+    ensure_dir(outdir)
+
+    # Load data
+    digits = load_digits()
+    X = digits.data.astype(float)        # (1797, 64)
+    y = digits.target                    # (1797,)
+
+    # Standardize (common for manifold learning)
+    X_std = StandardScaler().fit_transform(X)
+
+    # 1) Kernel PCA (RBF)
+    gamma = kpca_gamma if kpca_gamma is not None else auto_gamma_rbf(X_std)
+    kpca = KernelPCA(n_components=2, kernel='rbf', gamma=gamma, fit_inverse_transform=False, random_state=seed)
+    X_kpca = kpca.fit_transform(X_std)
+    plot_embedding(X_kpca, y, f"Kernel PCA (RBF, gamma={gamma:.3g})", f"{outdir}/kpca_2d.png")
+    kpca_ari, kpca_nmi, kpca_sil = kmeans_scores(X_kpca, y, seed)
+
+    # 2) Spectral Embedding
+    se = SpectralEmbedding(n_components=2, n_neighbors=spectral_n_neighbors, random_state=seed)
+    X_se = se.fit_transform(X_std)
+    plot_embedding(X_se, y, f"Spectral Embedding (n_neighbors={spectral_n_neighbors})", f"{outdir}/spectral_2d.png")
+    se_ari, se_nmi, se_sil = kmeans_scores(X_se, y, seed)
+
+    # 3) Classical MDS (closed-form)
+    X_cmds = classical_mds(X_std, n_components=2)
+    plot_embedding(X_cmds, y, "Classical MDS", f"{outdir}/classical_mds_2d.png")
+    cmds_ari, cmds_nmi, cmds_sil = kmeans_scores(X_cmds, y, seed)
+
+    # 4) Metric MDS (sklearn MDS, metric=True)
+    mds_metric = MDS(n_components=2, metric=True, normalized_stress='auto', random_state=seed)
+    X_mds = mds_metric.fit_transform(X_std)
+    plot_embedding(X_mds, y, "Metric MDS", f"{outdir}/metric_mds_2d.png")
+    mds_ari, mds_nmi, mds_sil = kmeans_scores(X_mds, y, seed)
+
+    # 5) t-SNE
+    tsne = TSNE(n_components=2, perplexity=tsne_perplexity, learning_rate='auto', init='pca', random_state=seed)
+    X_tsne = tsne.fit_transform(X_std)
+    plot_embedding(X_tsne, y, f"t-SNE (perplexity={tsne_perplexity})", f"{outdir}/tsne_2d.png")
+    tsne_ari, tsne_nmi, tsne_sil = kmeans_scores(X_tsne, y, seed)
+
+    # 6) UMAP
+    umap_model = umap.UMAP(n_neighbors=umap_n_neighbors, min_dist=umap_min_dist, n_components=2, random_state=seed)
+    X_umap = umap_model.fit_transform(X_std)
+    plot_embedding(X_umap, y, f"UMAP (n_neighbors={umap_n_neighbors}, min_dist={umap_min_dist})", f"{outdir}/umap_2d.png")
+    umap_ari, umap_nmi, umap_sil = kmeans_scores(X_umap, y, seed)
+
+    # Autoencoder（PyTorch）
+    X_minmax = MinMaxScaler().fit_transform(X)
+    X_ae = train_autoencoder_pytorch(
+        X_minmax,
+        seed=seed,
+        hidden=ae_hidden,
+        bottleneck=2,
+        epochs=ae_epochs,
+        batch_size=ae_batch,
+        lr=ae_lr,
+    )
+    plot_embedding(X_ae, y, f"Autoencoder (hidden={ae_hidden}, epochs={ae_epochs})", f"{outdir}/autoencoder_2d.png")
+    ae_ari, ae_nmi, ae_sil = kmeans_scores(X_ae, y, seed)
+
+    # Save metrics
+    import csv
+    metrics_path = f"{outdir}/part1b_metrics.csv"
+    with open(metrics_path, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["Method", "Params", "ARI", "NMI", "Silhouette", "Notes"])
+        writer.writerow(["Kernel PCA", f"rbf, gamma={gamma:.3g}", f"{kpca_ari:.4f}", f"{kpca_nmi:.4f}", f"{kpca_sil:.4f}", "2D embedding"])
+        writer.writerow(["Spectral", f"n_neighbors={spectral_n_neighbors}", f"{se_ari:.4f}", f"{se_nmi:.4f}", f"{se_sil:.4f}", "2D embedding"])
+        writer.writerow(["Classical MDS", "-", f"{cmds_ari:.4f}", f"{cmds_nmi:.4f}", f"{cmds_sil:.4f}", "closed-form (eigendecomposition)"])
+        writer.writerow(["Metric MDS", "sklearn MDS(metric=True)", f"{mds_ari:.4f}", f"{mds_nmi:.4f}", f"{mds_sil:.4f}", "stress minimization"])
+        writer.writerow(["t-SNE", f"perplexity={tsne_perplexity}", f"{tsne_ari:.4f}", f"{tsne_nmi:.4f}", f"{tsne_sil:.4f}", "2D embedding"])
+        writer.writerow(["UMAP", f"n_neighbors={umap_n_neighbors}, min_dist={umap_min_dist}", f"{umap_ari:.4f}", f"{umap_nmi:.4f}", f"{umap_sil:.4f}", "2D embedding"])
+        writer.writerow(["Autoencoder",f"hidden={ae_hidden}, epochs={ae_epochs}, batch={ae_batch}, lr={ae_lr:g}",f"{ae_ari:.4f}", f"{ae_nmi:.4f}", f"{ae_sil:.4f}","2D bottleneck (PyTorch)"])
+
+    # Print a neat summary
+    print("\n=== Part 1(b) — Manifold Methods on Digits ===")
+    print(f"[Kernel PCA]    ARI={kpca_ari:.4f}  NMI={kpca_nmi:.4f}  Silhouette={kpca_sil:.4f}  (gamma={gamma:.3g})")
+    print(f"[Spectral]      ARI={se_ari:.4f}  NMI={se_nmi:.4f}  Silhouette={se_sil:.4f}  (n_neighbors={spectral_n_neighbors})")
+    print(f"[Classical MDS] ARI={cmds_ari:.4f}  NMI={cmds_nmi:.4f}  Silhouette={cmds_sil:.4f}")
+    print(f"[Metric MDS]    ARI={mds_ari:.4f}  NMI={mds_nmi:.4f}  Silhouette={mds_sil:.4f}")
+    print(f"[t-SNE]         ARI={tsne_ari:.4f}  NMI={tsne_nmi:.4f}  Silhouette={tsne_sil:.4f}  (perplexity={tsne_perplexity})")
+    print(f"[UMAP]          ARI={umap_ari:.4f}  NMI={umap_nmi:.4f}  Silhouette={umap_sil:.4f}  (n_neighbors={umap_n_neighbors}, min_dist={umap_min_dist})")
+    print(f"\nSaved figures and metrics to: {outdir}/")
+    print("Figures:")
+    print(" - kpca_2d.png, spectral_2d.png, classical_mds_2d.png, metric_mds_2d.png, tsne_2d.png, umap_2d.png")
+    print("Table:")
+    print(f" - {Path(metrics_path).name}")
+    print(f"[Autoencoder]   ARI={ae_ari:.4f}  NMI={ae_nmi:.4f}  Silhouette={ae_sil:.4f}  (hidden={ae_hidden}, epochs={ae_epochs})")
+
+# ----------------------------
+# Entry
+# ----------------------------
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--seed", type=int, default=0, help="random seed")
+    parser.add_argument("--outdir", type=str, default="Homework 1/Latex/Results/Problem_1_b", help="output directory")
+    parser.add_argument("--kpca_gamma", type=float, default=None, help="RBF gamma for Kernel PCA (auto if None)")
+    parser.add_argument("--spectral_n_neighbors", type=int, default=10, help="n_neighbors for Spectral Embedding")
+    parser.add_argument("--tsne_perplexity", type=float, default=30, help="perplexity for t-SNE")
+    parser.add_argument("--umap_n_neighbors", type=int, default=15, help="n_neighbors for UMAP")
+    parser.add_argument("--umap_min_dist", type=float, default=0.1, help="min_dist for UMAP")
+    parser.add_argument("--ae_hidden", type=int, default=32)
+    parser.add_argument("--ae_epochs", type=int, default=50)
+    parser.add_argument("--ae_batch", type=int, default=128)
+    parser.add_argument("--ae_lr", type=float, default=1e-3)
+    args = parser.parse_args()
+
+    run(seed=args.seed,
+        outdir=args.outdir,
+        kpca_gamma=args.kpca_gamma,
+        spectral_n_neighbors=args.spectral_n_neighbors,
+        tsne_perplexity=args.tsne_perplexity,
+        umap_n_neighbors=args.umap_n_neighbors,
+        umap_min_dist=args.umap_min_dist,
+        ae_hidden=args.ae_hidden,
+        ae_epochs=args.ae_epochs,
+        ae_batch=args.ae_batch,
+        ae_lr=args.ae_lr)
+\end{python}
+
+\subsection{Problem 2.}
+\begin{python}
+'''
+Author: Chuyang Su cs4570@columbia.edu
+Date: 2025-10-09 13:41:38
+LastEditors: Please set LastEditors
+LastEditTime: 2025-10-09 21:33:31
+FilePath: /Unsupervised-Learning-Homework/Homework 1/Code/Problem_2.py
+Description: 
+    This data set consists of gene expression measurements for n = 445 breast cancer tumors and p = 353 genes taken from The Cancer Genome Atlas(TCGA). 
+    This subset of genes was selected based on whether they contain known somatic mutations in cancer. 
+    Additionally, this data contains clinical data on the 
+        (i) Subtype (denotes 5 PAM50 subtypes including Basal-like, Luminal A, Luminal B, HER2-enriched, and Normal-like), 
+        (ii) ER-Status(estrogen-receptor status), 
+        (iii) PR-Status (progesterone-receptor status), 
+        (iv) HER2-Status (human epidermal growth factor receptor 2 status), 
+        (v) Node (number of lymph nodes involved), and (vi)Metastasis (indicator for whether the cancer has metastasized).
+'''
+import pandas as pd
+import numpy as np
+from sklearn.preprocessing import StandardScaler
+from pathlib import Path
+import os
+import matplotlib.pyplot as plt
+from sklearn.decomposition import PCA, NMF
+from sklearn.manifold import TSNE, SpectralEmbedding
+from sklearn.cluster import KMeans
+from sklearn.metrics import adjusted_rand_score, normalized_mutual_info_score, silhouette_score
+import csv
+import umap
+
+# === Embedding and evaluation pipeline (UMAP included) ===
+def run_embedding(X, method='pca', n_components=2, seed=0, **kwargs):
+    """
+    Apply a dimension reduction method and return 2D embedding.
+    Assumes UMAP is available (imported at top).
+    """
+    method = method.lower()
+    if method == 'pca':
+        model = PCA(n_components=n_components, random_state=seed)
+        name = "PCA"
+    elif method == 'nmf':
+        model = NMF(n_components=n_components, init='nndsvda', random_state=seed, max_iter=1000)
+        name = "NMF"
+    elif method == 'tsne':
+        model = TSNE(n_components=n_components, random_state=seed, **kwargs)
+        name = "tSNE"
+    elif method == 'umap':
+        model = umap.UMAP(n_components=n_components, random_state=seed, **kwargs)
+        name = "UMAP"
+    elif method == 'spectral':
+        model = SpectralEmbedding(n_components=n_components, random_state=seed)
+        name = "Spectral"
+    else:
+        raise ValueError(f"Unknown method: {method}")
+    X_embedded = model.fit_transform(X)
+    return X_embedded, name
+
+
+def _encode_categories(series):
+    """Encode categorical labels to integer indices and return (indices, mapping)."""
+    cats = series.astype(str).fillna("NA").values
+    uniq = sorted(np.unique(cats))
+    mapping = {c: i for i, c in enumerate(uniq)}
+    idx = np.array([mapping[c] for c in cats], dtype=int)
+    return idx, mapping
+
+def plot_embedding(X2d, meta, hue_col, title, outpath):
+    """Plot and save a 2D embedding colored by a clinical variable."""
+    outpath = Path(outpath)
+    outpath.parent.mkdir(parents=True, exist_ok=True)
+
+    labels = meta[hue_col].astype(str).fillna("NA")
+    idx, mapping = _encode_categories(labels)
+    cmap = plt.cm.get_cmap('tab10', len(mapping))
+
+    plt.figure(figsize=(6.4, 5.2), dpi=120)
+    sc = plt.scatter(X2d[:, 0], X2d[:, 1], c=idx, s=14, cmap=cmap, alpha=0.85, edgecolors='none')
+    plt.title(f"{title} embedding colored by {hue_col}")
+    plt.xlabel("Dim 1"); plt.ylabel("Dim 2")
+
+    # manual legend
+    handles = [plt.Line2D([0], [0], marker='o', linestyle='', markersize=6,
+                          markerfacecolor=cmap(i), markeredgecolor='none')
+               for i in range(len(mapping))]
+    labels_sorted = list(mapping.keys())
+    plt.legend(handles, labels_sorted, bbox_to_anchor=(1.02, 1), loc='upper left', fontsize=8, frameon=False)
+    plt.tight_layout()
+    plt.savefig(outpath, bbox_inches='tight')
+    plt.close()
+
+
+def evaluate_embedding(X2d, subtype_series, seed=0):
+    """KMeans(k=5) on the embedding; compute ARI/NMI/Silhouette using Subtype as reference."""
+    mask = subtype_series.notna()
+    X_eval = X2d[mask.values]
+    y_ref = subtype_series[mask].astype(str).values
+
+    km = KMeans(n_clusters=5, random_state=seed, n_init=10)
+    pred = km.fit_predict(X_eval)
+
+    ari = adjusted_rand_score(y_ref, pred)
+    nmi = normalized_mutual_info_score(y_ref, pred)
+    sil = silhouette_score(X_eval, pred)
+    return ari, nmi, sil
+
+
+def run_problem2_pipeline(
+    data_path="Homework 1/Data/BRCA_data.csv",
+    outdir="Homework 1/Latex/Results/Problem_2",
+    seed=0
+):
+    outdir = Path(outdir)
+    outdir.mkdir(parents=True, exist_ok=True)
+
+    # 1) Preprocess (writes TXT report under outdir)
+    X, y_clinical, gene_cols = load_and_preprocess_brca(
+        data_path=data_path,
+        report_path=str(outdir / "preprocessing_report.txt")
+    )
+
+    # 2) Methods to run (UMAP included by assumption)
+    methods = [
+        ("pca",      dict()),
+        ("nmf",      dict()),
+        ("spectral", dict()),
+        ("tsne",     dict(perplexity=30, learning_rate='auto', init='pca')),
+        ("umap",     dict(n_neighbors=15, min_dist=0.1)),
+    ]
+
+    # 3) Clinical hues to color by (only those that exist)
+    hues = [c for c in ["subtype", "er_status", "pr_status", "her2_status"] if c in y_clinical.columns]
+
+    # 4) Run, plot, evaluate
+    metrics_rows = []
+    best_by_ari = (None, -1.0)
+
+    for m, kwargs in methods:
+        if m == "nmf":
+            # NMF 只能用非负数据，传入原始（已填补但未标准化）的矩阵
+            X_nonneg = np.maximum(X, 0)  # 保证所有值非负
+            X2d, name = run_embedding(X_nonneg, method=m, seed=seed, **kwargs)
+        else:
+            X2d, name = run_embedding(X, method=m, seed=seed, **kwargs)
+
+        # Evaluation (Subtype as reference, if present)
+        if "subtype" in y_clinical.columns:
+            ari, nmi, sil = evaluate_embedding(X2d, y_clinical["subtype"], seed=seed)
+        else:
+            ari = nmi = sil = np.nan
+
+        metrics_rows.append([name, f"{ari:.4f}", f"{nmi:.4f}", f"{sil:.4f}"])
+        if not np.isnan(ari) and ari > best_by_ari[1]:
+            best_by_ari = (name, ari)
+
+        # Save embedding as CSV (optional, useful for debugging/report)
+        emb_path = outdir / f"{name}_embedding.csv"
+        np.savetxt(emb_path, X2d, delimiter=",")
+
+        # Plots colored by clinical variables
+        for hue in hues:
+            fig_path = outdir / f"{name}_{hue}.png"
+            plot_embedding(X2d, y_clinical, hue_col=hue, title=name, outpath=fig_path)
+
+    # 5) Save metrics summary
+    metrics_path = outdir / "metrics_summary.csv"
+    with open(metrics_path, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["Method", "ARI (Subtype)", "NMI (Subtype)", "Silhouette (KMeans=5)"])
+        writer.writerows(metrics_rows)
+
+    # Console summary
+    print("\n=== Problem 2: embedding metrics (Subtype as reference) ===")
+    for r in metrics_rows:
+        print("{:<10s}  ARI={}  NMI={}  Sil={}".format(*r))
+    if best_by_ari[0] is not None:
+        print(f"\nBest by ARI: {best_by_ari[0]} (ARI={best_by_ari[1]:.4f})")
+
+    print(f"\nSaved figures & tables to: {outdir}")
+
+def load_and_preprocess_brca(data_path: str, var_threshold: float = 1e-4, report_path: str = None):
+    # 1) Load with sample IDs in index
+    df = pd.read_csv(data_path, index_col=0)
+    n_samples_raw, n_cols_raw = df.shape
+    print(f"Raw data shape: {n_samples_raw} samples × {n_cols_raw} columns")
+
+    # 2) Normalize column names
+    df.columns = (
+        df.columns.astype(str)
+        .str.strip()
+        .str.replace("-", "_", regex=False)
+        .str.replace(" ", "_", regex=False)
+        .str.lower()
+    )
+
+    # 3) Detect clinical columns robustly
+    possible_clinical = ["subtype", "er_status", "pr_status", "her2_status", "node", "metastasis"]
+    clinical_cols = [c for c in possible_clinical if c in df.columns]
+    if not clinical_cols:
+        raise ValueError("No clinical columns detected after normalization. "
+                         "Please check the CSV headers.")
+    print(f"Detected clinical columns: {clinical_cols}")
+
+    # 4) Split gene vs clinical
+    gene_cols = [c for c in df.columns if c not in clinical_cols]
+    # Force numeric on genes; coerce errors to NaN
+    df[gene_cols] = df[gene_cols].apply(pd.to_numeric, errors="coerce")
+
+    X_df = df[gene_cols].copy()
+    y_clinical = df[clinical_cols].copy()
+
+    # 5) Missing value stats and imputation
+    n_missing_total = int(X_df.isna().sum().sum())
+    n_rows_with_na = int(X_df.isna().any(axis=1).sum())
+    n_genes_with_na = int(X_df.isna().any(axis=0).sum())
+    print(f"Missing values in gene matrix: {n_missing_total} "
+          f"(rows with any NA: {n_rows_with_na}, genes with any NA: {n_genes_with_na})")
+
+    # Impute clinical: categorical by mode, numeric by mean
+    for col in y_clinical.columns:
+        if y_clinical[col].dtype == "O":
+            mode_vals = y_clinical[col].mode(dropna=True)
+            fill_val = mode_vals.iloc[0] if not mode_vals.empty else "Unknown"
+            y_clinical[col] = y_clinical[col].fillna(fill_val)
+        else:
+            y_clinical[col] = y_clinical[col].fillna(y_clinical[col].mean())
+
+    # Impute genes by column median (robust)
+    X_df = X_df.fillna(X_df.median())
+
+    # 6) Standardize (Z-score)
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X_df)
+
+    # 7) Build and optionally save summary report
+    summary_lines = [
+        "=== BRCA Data Preprocessing Summary ===",
+        f"Original shape: {n_samples_raw} samples × {n_cols_raw} columns",
+        f"Detected clinical columns: {clinical_cols}",
+        f"Initial gene columns: {len(gene_cols)}",
+        f"Total missing values filled (genes): {n_missing_total}",
+        f"Rows with any NA (genes): {n_rows_with_na}",
+        f"Genes with any NA: {n_genes_with_na}",
+        f"Final standardized data shape: {X_scaled.shape}",
+    ]
+
+    # --- Clinical summary by type ---
+    summary_text = ["Clinical variable summary:"]
+    for col in y_clinical.columns:
+        if y_clinical[col].dtype == "O":
+            counts = y_clinical[col].value_counts(dropna=False)
+            summary_text.append(f"\n{col} (categorical):")
+            summary_text.append(str(counts))
+        else:
+            desc = y_clinical[col].describe()
+            summary_text.append(f"\n{col} (numeric):")
+            summary_text.append(str(desc))
+
+    report_text = "\n".join(summary_lines + ["\n".join(summary_text)])
+    print("\n" + report_text)
+
+    if report_path is not None:
+        report_dir = Path(report_path).parent
+        report_dir.mkdir(parents=True, exist_ok=True)
+        with open(report_path, "w", encoding="utf-8") as f:
+            f.write(report_text)
+        print(f"\nPreprocessing summary saved to {report_path}")
+
+    return X_scaled, y_clinical, gene_cols
+
+def run_embedding(X, method='pca', n_components=2, seed=0, **kwargs):
+    method = method.lower()
+    if method == 'pca':
+        model = PCA(n_components=n_components, random_state=seed)
+        name = 'PCA'
+    elif method == 'nmf':
+        model = NMF(n_components=n_components, init='nndsvda', random_state=seed, max_iter=1000)
+        name = 'NMF'
+    elif method == 'tsne':
+        model = TSNE(n_components=n_components, random_state=seed, **kwargs)
+        name = 'tSNE'
+    elif method == 'umap':
+        model = umap.UMAP(n_components=n_components, random_state=seed, **kwargs)
+        name = 'UMAP'
+    elif method == 'spectral':
+        model = SpectralEmbedding(n_components=n_components, random_state=seed)
+        name = 'Spectral'
+    else:
+        raise ValueError(f"Unknown method: {method}")
+
+    X_emb = model.fit_transform(X)
+    return X_emb, name
+
+
+def _encode_categories(series):
+    cats = series.astype(str).fillna("NA").values
+    uniq = sorted(np.unique(cats))
+    mapping = {c: i for i, c in enumerate(uniq)}
+    idx = np.array([mapping[c] for c in cats], dtype=int)
+    return idx, mapping
+
+
+def plot_embedding(X2d, meta, hue_col, title, outpath):
+    outpath = Path(outpath)
+    outpath.parent.mkdir(parents=True, exist_ok=True)
+
+    labels = meta[hue_col].astype(str).fillna("NA")
+    idx, mapping = _encode_categories(labels)
+    cmap = plt.cm.get_cmap('tab10', len(mapping))
+
+    plt.figure(figsize=(6.2, 5.2), dpi=120)
+    sc = plt.scatter(X2d[:,0], X2d[:,1], c=idx, s=14, cmap=cmap, alpha=0.85, edgecolors='none')
+    plt.title(f"{title} embedding colored by {hue_col}")
+    plt.xlabel("Dim 1"); plt.ylabel("Dim 2")
+    handles = [plt.Line2D([0],[0], marker='o', linestyle='',
+                          markersize=6, markerfacecolor=cmap(i), markeredgecolor='none')
+               for i in range(len(mapping))]
+    labels_sorted = list(mapping.keys())
+    plt.legend(handles, labels_sorted, bbox_to_anchor=(1.02, 1), loc='upper left', fontsize=8, frameon=False)
+    plt.tight_layout()
+    plt.savefig(outpath, bbox_inches='tight')
+    plt.close()
+
+
+def evaluate_embedding(X2d, subtype_series, seed=0):
+    mask = subtype_series.notna()
+    X_eval = X2d[mask.values]
+    y_ref = subtype_series[mask].astype(str).values
+
+    km = KMeans(n_clusters=5, random_state=seed, n_init=10)
+    pred = km.fit_predict(X_eval)
+
+    ari = adjusted_rand_score(y_ref, pred)
+    nmi = normalized_mutual_info_score(y_ref, pred)
+    sil = silhouette_score(X_eval, pred)
+
+    return ari, nmi, sil
+
+
+
+if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--data_path", type=str, default="Homework 1/Data/BRCA_data.csv")
+    parser.add_argument("--outdir", type=str, default="Homework 1/Latex/Results/Problem_2")
+    parser.add_argument("--seed", type=int, default=0)
+    args = parser.parse_args()
+
+    run_problem2_pipeline(
+        data_path=args.data_path,
+        outdir=args.outdir,
+        seed=args.seed
+    )
+\end{python}
 \end{document}

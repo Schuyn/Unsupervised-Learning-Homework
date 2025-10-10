@@ -1,0 +1,8 @@
+Method,Params,ARI,NMI,Silhouette,Notes
+Kernel PCA,"rbf, gamma=0.102",0.0511,0.3357,0.7541,2D embedding
+Spectral,n_neighbors=10,0.4730,0.6681,0.6119,2D embedding
+Classical MDS,-,0.3262,0.4647,0.3771,closed-form (eigendecomposition)
+Metric MDS,sklearn MDS(metric=True),0.3461,0.4722,0.3503,stress minimization
+t-SNE,perplexity=30,0.7695,0.8339,0.5731,2D embedding
+UMAP,"n_neighbors=15, min_dist=0.1",0.8662,0.8912,0.6866,2D embedding
+Autoencoder,"hidden=32, epochs=50, batch=128, lr=0.001",0.3476,0.4992,0.3958,2D bottleneck (PyTorch)
