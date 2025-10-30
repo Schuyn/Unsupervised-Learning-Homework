@@ -1,265 +1,176 @@
 '''
 Author: Chuyang Su cs4570@columbia.edu
 Date: 2025-10-29 17:59:43
-LastEditTime: 2025-10-30 12:47:18
+LastEditTime: 2025-10-30 13:20:28
 FilePath: /Unsupervised-Learning-Homework/Homework 2/Code/Problem_1_b.py
 Description: 
     EM algorithm for a mixture of Poisson distributions and fit to the author data with K = 4 clusters.
 '''
-
 import os
-os.environ["OMP_NUM_THREADS"] = "4"
-
+import json
 import numpy as np
 import pandas as pd
-from scipy.special import logsumexp
-from sklearn.cluster import KMeans
-from sklearn.metrics import adjusted_rand_score, normalized_mutual_info_score
-from sklearn.preprocessing import LabelEncoder
+from datetime import datetime
 
-# def load_authors_counts_rda(path_rda):
-#     import pyreadr
+DATA_PATH = r"Homework 2\Code\Data\authors.csv"
+RESULT_DIR = r"Homework 2\Code\Result"
+os.makedirs(RESULT_DIR, exist_ok=True)
 
-#     res = pyreadr.read_r(path_rda)
-#     obj = next(iter(res.values()))
-#     if not isinstance(obj, pd.DataFrame):
-#         obj = pd.DataFrame(obj)
-#     df = obj.copy()
+# ======================= EM for Poisson Mixture ======================
+class PoissonMixtureResult:
+    __slots__ = ("pi", "lmbda", "gamma", "loglik_hist", "converged", "n_iter")
+    def __init__(self, pi, lmbda, gamma, loglik_hist, converged, n_iter):
+        self.pi = pi
+        self.lmbda = lmbda
+        self.gamma = gamma
+        self.loglik_hist = loglik_hist
+        self.converged = converged
+        self.n_iter = n_iter
 
-#     # Detect Author and Book ID columns
-#     label_col = next((c for c in ["Author", "author", "AUTHORS"] if c in df.columns), None)
-#     bookid_col = next((c for c in ["Book.ID", "BookID", "book_id", "Book ID"] if c in df.columns), None)
+def _softmax_logspace(logW, axis=1):
+    m = np.max(logW, axis=axis, keepdims=True)
+    W = np.exp(logW - m)
+    W /= W.sum(axis=axis, keepdims=True)
+    return W
 
-#     if bookid_col:
-#         df = df.drop(columns=[bookid_col])
+def _logsumexp(A, axis=1):
+    m = np.max(A, axis=axis, keepdims=True)
+    return (m + np.log(np.sum(np.exp(A - m), axis=axis, keepdims=True))).squeeze(axis)
 
-#     y = None
-#     if label_col:
-#         y_raw = df[label_col]
-#         df = df.drop(columns=[label_col])
-
-#         # robust 1D conversion
-#         if isinstance(y_raw, pd.Series):
-#             y = y_raw.to_numpy()
-#         elif isinstance(y_raw, pd.DataFrame):
-#             y = y_raw.iloc[:, 0].to_numpy()
-#         else:
-#             y = np.array(y_raw)
-
-#         # flatten & cast to str (avoid categorical weirdness)
-#         y = np.ravel(y).astype(str)
-
-#     X = df.to_numpy(dtype=np.float64)
-#     feature_names = list(df.columns)
-    
-#     if y is not None and y.shape[0] != X.shape[0]:
-#         # handle rare case: y is nested object of length 1 containing the vector
-#         if y.shape[0] == 1 and hasattr(y, "item"):
-#             maybe = y.item()
-#             if isinstance(maybe, (list, np.ndarray)):
-#                 y = np.ravel(np.array(maybe)).astype(str)
-                
-#     return X, y, feature_names
-
-
-def load_authors_counts_rda(path_rda):
-    import pyreadr
-    import re
-
-    # ---- read R object ----
-    res = pyreadr.read_r(path_rda)
-    obj = next(iter(res.values()))
-    if not isinstance(obj, pd.DataFrame):
-        obj = pd.DataFrame(obj)
-    df = obj.copy()
-
-    # standardize column names for matching (keep original for output)
-    def norm(s): 
-        return re.sub(r'\s+', '', str(s)).lower()
-
-    cols_norm = {c: norm(c) for c in df.columns}
-    inv_norm = {v: k for k, v in cols_norm.items()}
-
-    # if author is in index, pull it out
-    idx_name = df.index.name
-    if idx_name and norm(idx_name) in {"author","authors","label"}:
-        df = df.reset_index()
-
-    # detect author column (case/space-insensitive)
-    author_keys = ["author","authors","label"]
-    author_col = None
-    for k in author_keys:
-        if k in cols_norm.values():
-            author_col = inv_norm[k]; break
-
-    # detect and drop book id column(s)
-    bookid_keys = {"book.id","bookid","book_id","book id"}
-    for k in bookid_keys:
-        if k in cols_norm.values():
-            df.drop(columns=[inv_norm[k]], inplace=True, errors="ignore")
-
-    # extract y robustly
-    y = None
-    if author_col is not None and author_col in df.columns:
-        y_raw = df[author_col]
-        # drop author column from feature frame
-        df = df.drop(columns=[author_col])
-
-        # robust conversion to 1D numpy array of str
-        if isinstance(y_raw, pd.Series):
-            y = y_raw.to_numpy()
-        elif isinstance(y_raw, pd.DataFrame):
-            y = y_raw.iloc[:, 0].to_numpy()
-        else:
-            y = np.array(y_raw)
-
-        # unwrap nested object like array([list([...])], dtype=object)
-        # keep unwrapping until y is 1D with length == n_rows
-        max_unwrap = 5
-        unwrap_cnt = 0
-        while True:
-            y = np.ravel(y)
-            if y.dtype == object and y.size == 1 and hasattr(y[0], "__iter__") and not isinstance(y[0], (str, bytes)):
-                y = np.array(list(y[0]))
-                unwrap_cnt += 1
-                if unwrap_cnt > max_unwrap:
-                    break
-            else:
-                break
-
-        y = np.ravel(y).astype(str)
-    else:
-        # no author column; leave y=None
-        y = None
-
-    # keep only numeric (counts) columns; coerce non-numeric to NaN->0
-    for c in df.columns:
-        if not pd.api.types.is_numeric_dtype(df[c]):
-            df[c] = pd.to_numeric(df[c], errors="coerce")
-    df = df.fillna(0)
-
-    X = df.to_numpy(dtype=np.float64)
-    feature_names = list(df.columns)
-
-    # final sanity check
-    if y is not None and y.shape[0] != X.shape[0]:
-        raise ValueError(f"[load_authors_counts_rda] label length {y.shape[0]} != X rows {X.shape[0]}")
-
-    return X, y, feature_names
-
-
-# EM Algorithm for Poisson Mixture
-def em_poisson_mixture(
-    X, K, 
-    max_iter=300, 
-    tol=1e-6, 
-    init="kmeans", 
-    random_state=25, 
-    verbose=False
-):  
+def _init_params(X, K, random_state=None):
     rng = np.random.default_rng(random_state)
     n, p = X.shape
+    gamma = rng.dirichlet(alpha=np.ones(K), size=n)
+    Nk = gamma.sum(axis=0) + 1e-16
+    pi = Nk / Nk.sum()
+    lmbda = (gamma.T @ X) / Nk[:, None]
+    lmbda = np.clip(lmbda, 1e-8, None)
+    return pi, lmbda, gamma
 
-    if init == "kmeans":
-        km = KMeans(n_clusters=K, n_init=10, random_state=random_state)
-        labels = km.fit_predict(X)
-        pi = np.bincount(labels, minlength=K) / n
-        Lambda = np.zeros((K, p))
-        for k in range(K):
-            wk = (labels == k)
-            Lambda[k] = X[wk].mean(axis=0) if wk.any() else rng.uniform(0.5, 1.5, size=p)
-    else:
-        pi = rng.dirichlet(np.ones(K))
-        Lambda = np.maximum(rng.random((K, p)) * X.mean(axis=0), 1e-6)
+def poisson_mixture_em(X, K, tol=1e-6, max_iter=500, random_state=None, verbose=False):
+    X = np.asarray(X, dtype=float)
+    if np.any(X < 0) or (np.abs(X - np.round(X)) > 1e-10).any():
+        raise ValueError("X must be nonnegative integer counts.")
+    n, p = X.shape
+    rng = np.random.default_rng(random_state)
 
-    def loglik(pi, Lambda):
-        logp = np.zeros(n)
-        for i in range(n):
-            logp[i] = logsumexp(np.log(pi) + (X[i] * np.log(Lambda) - Lambda).sum(axis=1))
-        return logp.sum()
+    pi, lmbda, gamma = _init_params(X, K, random_state=rng)
+    loglik_hist = []
+    eps = 1e-12
 
-    ll_hist = []
-    for it in range(max_iter):
-        # E-step
-        log_pi = np.log(pi + 1e-12)
-        log_rate = np.log(Lambda + 1e-12)
-        log_w = X @ log_rate.T - Lambda.sum(axis=1) + log_pi
-        log_norm = logsumexp(log_w, axis=1, keepdims=True)
-        gamma = np.exp(log_w - log_norm)
+    for it in range(1, max_iter + 1):
+        log_pi = np.log(np.clip(pi, eps, 1.0))
+        log_lambda = np.log(np.clip(lmbda, eps, None))
+        log_px_given_k = X @ log_lambda.T - np.sum(lmbda, axis=1)[None, :]
+        log_w = log_pi[None, :] + log_px_given_k
+        gamma = _softmax_logspace(log_w, axis=1)
 
-        # M-step
-        Nk = gamma.sum(axis=0)
+        Nk = gamma.sum(axis=0) + eps
         pi = Nk / n
-        Lambda = (gamma.T @ X) / (Nk[:, None] + 1e-12)
+        lmbda = (gamma.T @ X) / Nk[:, None]
+        lmbda = np.clip(lmbda, 1e-12, None)
 
-        ll = loglik(pi, Lambda)
-        ll_hist.append(ll)
-        if it > 0 and abs(ll - ll_hist[-2]) < tol * abs(ll_hist[-2]):
-            if verbose:
-                print(f"Converged at iter {it+1}, loglik={ll:.3f}")
-            break
-        if verbose:
-            print(f"Iter {it+1:3d}: loglik={ll:.6f}")
+        ll_vec = _logsumexp(log_w, axis=1)
+        ll = float(ll_vec.sum())
+        loglik_hist.append(ll)
 
-    return pi, Lambda, gamma, ll_hist
+        if it > 1:
+            ll_prev = loglik_hist[-2]
+            denom = max(1.0, abs(ll_prev))
+            if (ll - ll_prev) / denom < tol:
+                return PoissonMixtureResult(pi, lmbda, gamma, loglik_hist, True, it)
 
-if __name__ == "__main__":
-    rda_path = os.path.join("Homework 2", "Code", "Data", "authors.rda")
-    X, y_true, feature_names = load_authors_counts_rda(rda_path)
-    print(f"Loaded data: {X.shape[0]} chapters × {X.shape[1]} stop words")
+    return PoissonMixtureResult(pi, lmbda, gamma, loglik_hist, False, max_iter)
 
-    K = 4
-    pi, Lambda, gamma, ll_hist = em_poisson_mixture(X, K=K, max_iter=500, tol=1e-7, verbose=True)
+def poisson_mixture_predict_proba(X, result):
+    X = np.asarray(X, dtype=float)
+    log_pi = np.log(np.clip(result.pi, 1e-12, 1.0))
+    log_lambda = np.log(np.clip(result.lmbda, 1e-12, None))
+    log_px_given_k = X @ log_lambda.T - np.sum(result.lmbda, axis=1)[None, :]
+    log_w = log_pi[None, :] + log_px_given_k
+    return _softmax_logspace(log_w, axis=1)
 
-    hard_labels = gamma.argmax(axis=1)
-    certainty = gamma.max(axis=1)
-    uncertainty = 1 - certainty
+def poisson_mixture_predict(X, result):
+    return np.argmax(poisson_mixture_predict_proba(X, result), axis=1)
 
-    result_dir = os.path.join("Homework 2", "Code", "Result")
-    os.makedirs(result_dir, exist_ok=True)
+# ======================= Data Load & Validation ======================
+df = pd.read_csv(DATA_PATH)
 
-    pd.DataFrame({"pi_k": pi}).to_csv(os.path.join(result_dir, "poisson_pi.csv"), index=False)
-    pd.DataFrame(Lambda, columns=feature_names).to_csv(os.path.join(result_dir, "poisson_lambda.csv"), index_label="cluster")
-    pd.DataFrame(gamma, columns=[f"cluster_{k}" for k in range(K)]).to_csv(os.path.join(result_dir, "poisson_gamma.csv"), index=False)
-    pd.DataFrame({"hard_label": hard_labels, "certainty": certainty}).to_csv(os.path.join(result_dir, "poisson_labels.csv"), index=False)
+# author column handling: first column is author, header may be "" or parsed as-is
+cols = list(df.columns)
+if len(cols) == 0:
+    raise ValueError("CSV appears to have no columns.")
+# Prefer an explicit empty-string header if present; else fall back to first column
+if "" in cols:
+    author_col = ""
+else:
+    author_col = cols[0]
 
-    top_m = 10
-    print("\nMixture Weights (π_k):")
-    for k, val in enumerate(pi):
-        print(f"  Cluster {k}: {val:.4f}")
+# identify BookID column (last column named "BookID" per spec)
+bookid_candidates = [c for c in cols if c.strip().lower() in {"bookid", "book_id"}]
+bookid_col = bookid_candidates[-1] if bookid_candidates else cols[-1]  # fallback to last col
 
-    print("\nTop Words per Cluster:")
-    for k in range(K):
-        top_idx = np.argsort(-Lambda[k])[:top_m]
-        top_words = [feature_names[j] for j in top_idx]
-        print(f"  Cluster {k}: {', '.join(top_words)}")
+# Extract labels (authors) for validation, but DO NOT use in training
+y_names, y = np.unique(df[author_col].astype(str).values, return_inverse=True)
 
-    # Low-certainty chapters
-    low_idx = np.argsort(certainty)[:10]
-    print("\nChapters with Lowest Cluster Certainty:")
-    for i in low_idx:
-        print(f"  Chapter {i}: certainty={certainty[i]:.3f}")
+# Feature columns = all columns except author + BookID
+feat_cols = [c for c in cols if c not in {author_col, bookid_col}]
+X = df[feat_cols].to_numpy(dtype=float)
 
-    # Validation
-    y_vec = np.ravel(y_true).astype(str)
-    assert y_vec.shape[0] == X.shape[0], f"Label length {y_vec.shape[0]} != X rows {X.shape[0]}"
-    le = LabelEncoder()
-    y_enc = le.fit_transform(y_vec)
-    ari = adjusted_rand_score(y_enc, hard_labels)
-    nmi = normalized_mutual_info_score(y_enc, hard_labels)
+# ======================= Fit & Validate ==============================
+K = len(y_names)
+res = poisson_mixture_em(X, K=K, tol=1e-6, max_iter=1000, random_state=0, verbose=False)
+hard = poisson_mixture_predict(X, res)
 
-    print("\n=== External Validation (Author labels only for evaluation) ===")
-    print(f"Adjusted Rand Index (ARI): {ari:.4f}")
-    print(f"Normalized Mutual Information (NMI): {nmi:.4f}")
+# Contingency table (true authors x predicted clusters)
+cont = np.zeros((K, K), dtype=int)
+for yi, hi in zip(y, hard):
+    cont[yi, hi] += 1
 
-    out_csv = os.path.join(result_dir, "poisson_validation.csv")  # 在 1c 改为 "gmm_validation.csv"
-    model_name = "Poisson"  # 在 1c 改为 "Gaussian"
-    pd.DataFrame({"Model":[model_name], "ARI":[ari], "NMI":[nmi]}).to_csv(out_csv, index=False)
-    
-    
-    # Save interpretation tables
-    pd.DataFrame({
-        "chapter_id": np.arange(len(certainty)),
-        "hard_label": hard_labels,
-        "certainty": certainty
-    }).to_csv(os.path.join(result_dir, "poisson_chapter_certainty.csv"), index=False)
+# Purity metric
+cluster_max = cont.max(axis=0)
+purity = float(cluster_max.sum() / len(y))
+
+# Cluster -> dominant author mapping
+cluster_to_author = {}
+for k in range(K):
+    col = cont[:, k]
+    j = int(np.argmax(col))
+    cluster_to_author[k] = y_names[j]
+
+# ======================= Save Results ================================
+ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+# parameters
+np.save(os.path.join(RESULT_DIR, f"pi_{ts}.npy"), res.pi)
+np.save(os.path.join(RESULT_DIR, f"lambda_{ts}.npy"), res.lmbda)
+
+# responsibilities
+gamma_df = pd.DataFrame(res.gamma, columns=[f"gamma_{k}" for k in range(K)])
+gamma_df.to_csv(os.path.join(RESULT_DIR, f"responsibilities_{ts}.csv"), index=False)
+
+# hard labels + ground truth
+pred_df = pd.DataFrame({
+    "author_true": y_names[y],
+    "cluster_pred": hard
+})
+pred_df.to_csv(os.path.join(RESULT_DIR, f"predictions_{ts}.csv"), index=False)
+
+# contingency table
+cont_df = pd.DataFrame(cont, index=[f"author={a}" for a in y_names], columns=[f"cluster={k}" for k in range(K)])
+cont_df.to_csv(os.path.join(RESULT_DIR, f"contingency_{ts}.csv"))
+
+# metrics + mapping
+metrics = {
+    "converged": bool(res.converged),
+    "n_iter": int(res.n_iter),
+    "final_loglik": float(res.loglik_hist[-1]),
+    "purity": purity,
+    "n_authors": int(K),
+    "authors": y_names.tolist(),
+    "feature_columns": feat_cols,
+    "cluster_sizes": np.bincount(hard, minlength=K).astype(int).tolist(),
+    "cluster_to_author_map": {str(k): str(v) for k, v in cluster_to_author.items()},
+}
+with open(os.path.join(RESULT_DIR, f"metrics_{ts}.json"), "w", encoding="utf-8") as f:
+    json.dump(metrics, f, ensure_ascii=False, indent=2)
