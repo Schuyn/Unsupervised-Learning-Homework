@@ -1,7 +1,7 @@
 '''
 Author: Chuyang Su cs4570@columbia.edu
 Date: 2025-10-29 17:59:43
-LastEditTime: 2025-10-30 13:20:28
+LastEditTime: 2025-10-30 13:48:43
 FilePath: /Unsupervised-Learning-Homework/Homework 2/Code/Problem_1_b.py
 Description: 
     EM algorithm for a mixture of Poisson distributions and fit to the author data with K = 4 clusters.
@@ -10,13 +10,26 @@ import os
 import json
 import numpy as np
 import pandas as pd
-from datetime import datetime
 
 DATA_PATH = r"Homework 2\Code\Data\authors.csv"
 RESULT_DIR = r"Homework 2\Code\Result"
 os.makedirs(RESULT_DIR, exist_ok=True)
 
-# ======================= EM for Poisson Mixture ======================
+def load_author_data(path):
+    df = pd.read_csv(path)
+    cols = list(df.columns)
+
+    author_col = "" if "" in cols else cols[0]
+
+    # Drop BookID column if exists
+    df = df.drop(columns=cols[-1])
+
+    y_names, y = np.unique(df[author_col].astype(str).values, return_inverse=True)
+    feat_cols = [c for c in df.columns if c != author_col]
+    X = df[feat_cols].to_numpy(dtype=float)
+
+    return X, y, y_names, feat_cols 
+
 class PoissonMixtureResult:
     __slots__ = ("pi", "lmbda", "gamma", "loglik_hist", "converged", "n_iter")
     def __init__(self, pi, lmbda, gamma, loglik_hist, converged, n_iter):
@@ -93,84 +106,32 @@ def poisson_mixture_predict_proba(X, result):
 def poisson_mixture_predict(X, result):
     return np.argmax(poisson_mixture_predict_proba(X, result), axis=1)
 
-# ======================= Data Load & Validation ======================
-df = pd.read_csv(DATA_PATH)
+# Main function
+if __name__ == "__main__":
+    X, y, y_names, feat_cols = load_author_data(DATA_PATH)
 
-# author column handling: first column is author, header may be "" or parsed as-is
-cols = list(df.columns)
-if len(cols) == 0:
-    raise ValueError("CSV appears to have no columns.")
-# Prefer an explicit empty-string header if present; else fall back to first column
-if "" in cols:
-    author_col = ""
-else:
-    author_col = cols[0]
+    K = len(y_names)
+    res = poisson_mixture_em(X, K=K, tol=1e-6, max_iter=1000, random_state=0, verbose=False)
+    hard = poisson_mixture_predict(X, res)
 
-# identify BookID column (last column named "BookID" per spec)
-bookid_candidates = [c for c in cols if c.strip().lower() in {"bookid", "book_id"}]
-bookid_col = bookid_candidates[-1] if bookid_candidates else cols[-1]  # fallback to last col
+    cont = np.zeros((K, K), dtype=int)
+    for yi, hi in zip(y, hard):
+        cont[yi, hi] += 1
+    purity = float(cont.max(axis=0).sum() / len(y))
+    cluster_to_author = {int(k): str(y_names[int(np.argmax(cont[:, k]))]) for k in range(K)}
 
-# Extract labels (authors) for validation, but DO NOT use in training
-y_names, y = np.unique(df[author_col].astype(str).values, return_inverse=True)
+    out_path = os.path.join(RESULT_DIR, f"poisson_mixture_result.json")
+    result_json = {
+        "converged": bool(res.converged),
+        "n_iter": int(res.n_iter),
+        "final_loglik": float(res.loglik_hist[-1]),
+        "purity": purity,
+        "n_authors": int(K),
+        "authors": y_names.tolist(),
+        "feature_columns": feat_cols,
+        "cluster_sizes": np.bincount(hard, minlength=K).astype(int).tolist(),
+        "cluster_to_author_map": {str(k): v for k, v in cluster_to_author.items()}
+    }
 
-# Feature columns = all columns except author + BookID
-feat_cols = [c for c in cols if c not in {author_col, bookid_col}]
-X = df[feat_cols].to_numpy(dtype=float)
-
-# ======================= Fit & Validate ==============================
-K = len(y_names)
-res = poisson_mixture_em(X, K=K, tol=1e-6, max_iter=1000, random_state=0, verbose=False)
-hard = poisson_mixture_predict(X, res)
-
-# Contingency table (true authors x predicted clusters)
-cont = np.zeros((K, K), dtype=int)
-for yi, hi in zip(y, hard):
-    cont[yi, hi] += 1
-
-# Purity metric
-cluster_max = cont.max(axis=0)
-purity = float(cluster_max.sum() / len(y))
-
-# Cluster -> dominant author mapping
-cluster_to_author = {}
-for k in range(K):
-    col = cont[:, k]
-    j = int(np.argmax(col))
-    cluster_to_author[k] = y_names[j]
-
-# ======================= Save Results ================================
-ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-
-# parameters
-np.save(os.path.join(RESULT_DIR, f"pi_{ts}.npy"), res.pi)
-np.save(os.path.join(RESULT_DIR, f"lambda_{ts}.npy"), res.lmbda)
-
-# responsibilities
-gamma_df = pd.DataFrame(res.gamma, columns=[f"gamma_{k}" for k in range(K)])
-gamma_df.to_csv(os.path.join(RESULT_DIR, f"responsibilities_{ts}.csv"), index=False)
-
-# hard labels + ground truth
-pred_df = pd.DataFrame({
-    "author_true": y_names[y],
-    "cluster_pred": hard
-})
-pred_df.to_csv(os.path.join(RESULT_DIR, f"predictions_{ts}.csv"), index=False)
-
-# contingency table
-cont_df = pd.DataFrame(cont, index=[f"author={a}" for a in y_names], columns=[f"cluster={k}" for k in range(K)])
-cont_df.to_csv(os.path.join(RESULT_DIR, f"contingency_{ts}.csv"))
-
-# metrics + mapping
-metrics = {
-    "converged": bool(res.converged),
-    "n_iter": int(res.n_iter),
-    "final_loglik": float(res.loglik_hist[-1]),
-    "purity": purity,
-    "n_authors": int(K),
-    "authors": y_names.tolist(),
-    "feature_columns": feat_cols,
-    "cluster_sizes": np.bincount(hard, minlength=K).astype(int).tolist(),
-    "cluster_to_author_map": {str(k): str(v) for k, v in cluster_to_author.items()},
-}
-with open(os.path.join(RESULT_DIR, f"metrics_{ts}.json"), "w", encoding="utf-8") as f:
-    json.dump(metrics, f, ensure_ascii=False, indent=2)
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(result_json, f, ensure_ascii=False, indent=2)

@@ -1,74 +1,174 @@
 '''
 Author: Chuyang Su cs4570@columbia.edu
 Date: 2025-10-29 21:47:48
-LastEditTime: 2025-10-30 12:09:25
+LastEditTime: 2025-10-30 13:47:53
 FilePath: /Unsupervised-Learning-Homework/Homework 2/Code/Problem_1_c.py
 Description: 
     Fit a Gaussian mixture model to the author data.
 '''
 import os
-os.environ["OMP_NUM_THREADS"] = "4"
-
+import json
 import numpy as np
 import pandas as pd
-from sklearn.mixture import GaussianMixture
-from sklearn.preprocessing import StandardScaler
-from Problem_1_b import load_authors_counts_rda
 
-rda_path = os.path.join("Homework 2", "Code", "Data", "authors.rda")
-X, y_true, feature_names = load_authors_counts_rda(rda_path)
-n, p = X.shape
-print(f"Loaded authors data: {n} samples × {p} features")
+DATA_PATH = r"Homework 2\Code\Data\authors.csv"
+RESULT_DIR = r"Homework 2\Code\Result"
+os.makedirs(RESULT_DIR, exist_ok=True)
 
-# Standardize for GMM
-scaler = StandardScaler()
-X_scaled = scaler.fit_transform(X)
+from Problem_1_b import load_author_data
 
+class GMMResult:
+    __slots__ = ("pi", "mu", "var", "gamma", "loglik_hist", "converged", "n_iter")
+    def __init__(self, pi, mu, var, gamma, loglik_hist, converged, n_iter):
+        self.pi = pi          # (K,)
+        self.mu = mu          # (K, p)
+        self.var = var        # (K, p)  diagonal covariances
+        self.gamma = gamma    # (n, K)
+        self.loglik_hist = loglik_hist
+        self.converged = converged
+        self.n_iter = n_iter
 
-# Fit Gaussian Mixture Model (K=4)
-K = 4
-gmm = GaussianMixture(
-    n_components=K,
-    covariance_type="diag",
-    random_state=25,
-    max_iter=500,
-    init_params="kmeans",
-    reg_covar=1e-6,
-)
-gmm.fit(X_scaled)
+def _log_gauss_diag(X, mu, var):
+    eps = 1e-10
+    var = np.clip(var, eps, None)
+    n, p = X.shape
+    K = mu.shape[0]
+    log_det = np.sum(np.log(var), axis=1)
+    inv_var = 1.0 / var
+    quad = ((X[:, None, :] - mu[None, :, :]) ** 2 * inv_var[None, :, :]).sum(axis=2)
+    return -0.5 * (p * np.log(2.0 * np.pi) + log_det[None, :] + quad)
 
-# soft assignments and certainty
-gamma = gmm.predict_proba(X_scaled)
-hard_labels = gamma.argmax(axis=1)
-certainty = gamma.max(axis=1)
-uncertainty = 1 - certainty
+def _softmax_logspace(logW, axis=1):
+    m = np.max(logW, axis=axis, keepdims=True)
+    W = np.exp(logW - m)
+    W /= W.sum(axis=axis, keepdims=True)
+    return W
 
-result_dir = os.path.join("Homework 2", "Code", "Result")
-os.makedirs(result_dir, exist_ok=True)
+def _logsumexp(A, axis=1):
+    m = np.max(A, axis=axis, keepdims=True)
+    return (m + np.log(np.sum(np.exp(A - m), axis=axis, keepdims=True))).squeeze(axis)
 
-pd.DataFrame({"pi_k": gmm.weights_}).to_csv(os.path.join(result_dir, "gmm_pi.csv"), index=False)
-pd.DataFrame(gmm.means_, columns=feature_names).to_csv(os.path.join(result_dir, "gmm_means.csv"), index_label="cluster")
-pd.DataFrame(gamma, columns=[f"cluster_{k}" for k in range(K)]).to_csv(os.path.join(result_dir, "gmm_gamma.csv"), index=False)
-pd.DataFrame({"hard_label": hard_labels, "certainty": certainty}).to_csv(os.path.join(result_dir, "gmm_labels.csv"), index=False)
+def _init_gmm_params(X, K, random_state=None):
+    rng = np.random.default_rng(random_state)
+    n, p = X.shape
+    mu = np.empty((K, p))
+    idx0 = rng.integers(0, n)
+    mu[0] = X[idx0]
+    d2 = np.sum((X - mu[0])**2, axis=1) + 1e-12
+    for k in range(1, K):
+        probs = d2 / d2.sum()
+        idx = rng.choice(n, p=probs)
+        mu[k] = X[idx]
+        d2 = np.minimum(d2, np.sum((X - mu[k])**2, axis=1) + 1e-12)
+    dist2 = ((X[:, None, :] - mu[None, :, :])**2).sum(axis=2)
+    gamma = np.zeros((n, K))
+    gamma[np.arange(n), np.argmin(dist2, axis=1)] = 1.0
+    Nk = gamma.sum(axis=0) + 1e-12
+    pi = Nk / n
+    var = (gamma.T @ (X**2)) / Nk[:, None] - ( (gamma.T @ X) / Nk[:, None] )**2
+    var = np.clip(var, 1e-6, None)
+    return pi, mu, var, gamma
 
-top_m = 10
-print("\nMixture Weights (π_k):")
-for k, val in enumerate(gmm.weights_):
-    print(f"  Cluster {k}: {val:.4f}")
+def gaussian_mixture_em(
+    X, K, tol=1e-6, max_iter=500, random_state=None, verbose=False
+):
+    X = np.asarray(X, dtype=float)
+    n, p = X.shape
+    eps = 1e-12
 
-print("\nTop Words per Cluster (highest mean features):")
-for k in range(K):
-    top_idx = np.argsort(-gmm.means_[k])[:top_m]
-    top_words = [feature_names[j] for j in top_idx]
-    print(f"  Cluster {k}: {', '.join(top_words)}")
+    pi, mu, var, gamma = _init_gmm_params(X, K, random_state=random_state)
+    loglik_hist = []
 
-low_idx = np.argsort(certainty)[:10]
-print("\nChapters with Lowest Cluster Certainty:")
-for i in low_idx:
-    print(f"  Chapter {i}: certainty={certainty[i]:.3f}")
+    for it in range(1, max_iter + 1):
+        # E-step
+        log_pi = np.log(np.clip(pi, eps, 1.0))  # (K,)
+        log_px_given_k = _log_gauss_diag(X, mu, var)  # (n,K)
+        log_w = log_pi[None, :] + log_px_given_k
+        gamma = _softmax_logspace(log_w, axis=1)      # (n,K)
 
-pd.DataFrame({
-    "chapter_id": np.arange(len(certainty)),
-    "hard_label": hard_labels,
-    "certainty": certainty
-}).to_csv(os.path.join(result_dir, "gmm_chapter_certainty.csv"), index=False)
+        # M-step
+        Nk = gamma.sum(axis=0) + eps                  # (K,)
+        pi = Nk / n
+        mu = (gamma.T @ X) / Nk[:, None]              # (K,p)
+        # diagonal covariance
+        Ex2 = (gamma.T @ (X**2)) / Nk[:, None]        # (K,p)
+        var = Ex2 - mu**2
+        var = np.clip(var, 1e-6, None)
+
+        # Log-likelihood
+        ll = float(_logsumexp(log_w, axis=1).sum())
+        loglik_hist.append(ll)
+
+        if verbose and (it == 1 or it % 10 == 0):
+            print(f"Iter {it:4d}  loglik={ll:.6f}")
+
+        if it > 1:
+            ll_prev = loglik_hist[-2]
+            denom = max(1.0, abs(ll_prev))
+            if (ll - ll_prev) / denom < tol:
+                if verbose:
+                    print(f"Converged at iter {it}  Δrel={(ll-ll_prev)/denom:.3e}")
+                return GMMResult(pi, mu, var, gamma, loglik_hist, True, it)
+
+    if verbose:
+        print("Reached max_iter without convergence.")
+    return GMMResult(pi, mu, var, gamma, loglik_hist, False, max_iter)
+
+def gmm_predict_proba(X, result):
+    log_pi = np.log(np.clip(result.pi, 1e-12, 1.0))
+    log_px_given_k = _log_gauss_diag(X, result.mu, result.var)
+    log_w = log_pi[None, :] + log_px_given_k
+    return _softmax_logspace(log_w, axis=1)
+
+def gmm_predict(X, result):
+    return np.argmax(gmm_predict_proba(X, result), axis=1)
+
+# Main function
+if __name__ == "__main__":
+    X, y, y_names, feat_cols = load_author_data(DATA_PATH)
+    K = len(y_names)
+
+    res = gaussian_mixture_em(
+        X, K=K, tol=1e-6, max_iter=1000, random_state=0, verbose=False
+    )
+    hard = gmm_predict(X, res)
+
+    cont = np.zeros((K, K), dtype=int)
+    for yi, hi in zip(y, hard):
+        cont[yi, hi] += 1
+    purity = float(cont.max(axis=0).sum() / len(y))
+    cluster_to_author = {
+        str(k): str(y_names[int(np.argmax(cont[:, k]))]) for k in range(K)
+    }
+
+    out_path = os.path.join(RESULT_DIR, f"gmm_result.json")
+
+    result_json = {
+        "model": "Gaussian Mixture (Diagonal Covariance)",
+        "data_path": DATA_PATH,
+        "feature_columns": feat_cols,
+        "authors": y_names.tolist(),
+        "n_authors": int(K),
+        "em": {
+            "converged": bool(res.converged),
+            "n_iter": int(res.n_iter),
+            "loglik_hist": [float(v) for v in res.loglik_hist],
+            "pi": res.pi.astype(float).tolist(),
+            "mu": res.mu.astype(float).tolist(),
+            "var_diag": res.var.astype(float).tolist()
+        },
+        "predictions": {
+            "author_true": [str(a) for a in y_names[y]],
+            "cluster_pred": [int(v) for v in hard],
+            "responsibilities": res.gamma.astype(float).tolist()
+        },
+        "validation": {
+            "contingency": cont.astype(int).tolist(),
+            "purity": purity,
+            "cluster_sizes": np.bincount(hard, minlength=K).astype(int).tolist(),
+            "cluster_to_author_map": cluster_to_author
+        }
+    }
+
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(result_json, f, ensure_ascii=False, indent=2)
