@@ -1,14 +1,18 @@
 '''
 Author: Chuyang Su cs4570@columbia.edu
 Date: 2025-10-29 17:59:43
-LastEditTime: 2025-10-29 21:45:41
+LastEditTime: 2025-10-29 22:06:37
 FilePath: /Unsupervised-Learning-Homework/Homework 2/Code/Problem_1_b.py
 Description: 
-    Write a python function implementing your EM algorithm for a mixture of Poisson distributions.
+    EM algorithm for a mixture of Poisson distributions and fit it to the author data with K = 4 clusters.
 '''
+import os
+os.environ["OMP_NUM_THREADS"] = "4"
 import numpy as np
 from scipy.special import logsumexp, gammaln
 from sklearn.cluster import KMeans
+import pandas as pd
+
 
 # EM for Mixture of Poissons
 def em_poisson_mixture(
@@ -109,43 +113,42 @@ def load_authors_counts_rda(path_rda, drop_cols=("Book.ID", "BookID", "book_id",
     import pyreadr
 
     res = pyreadr.read_r(path_rda)
-    # take the first object
     obj = next(iter(res.values()))
-    # Convert to pandas DataFrame if it's not already
-    import pandas as pd
     if not isinstance(obj, pd.DataFrame):
         obj = pd.DataFrame(obj)
-
     df = obj.copy()
 
-    # Identify label column (common names)
+    # Identify label column
     label_col_candidates = ["Author", "author", "label", "Label", "AUTHORS"]
-    label_col = None
-    for c in label_col_candidates:
-        if c in df.columns:
-            label_col = c
-            break
+    label_col = next((c for c in label_col_candidates if c in df.columns), None)
 
-    # Drop non-count columns (book id etc.)
+    # Drop book id cols
     for c in drop_cols:
         if c in df.columns:
             df = df.drop(columns=[c])
 
-    # Separate labels if present
     y = None
-    if label_col is not None and label_col in df.columns:
-        y = df[label_col].to_numpy()
+    if label_col is not None:
+        y = df[label_col]
         df = df.drop(columns=[label_col])
 
-    # Remaining should be counts
+        # Convert to 1D numpy array robustly
+        if isinstance(y, pd.Series):
+            y = y.to_numpy()
+        elif isinstance(y, pd.DataFrame):
+            y = y.iloc[:, 0].to_numpy()
+        elif not isinstance(y, np.ndarray):
+            y = np.array(y)
+        y = np.ravel(y)
+
     X = df.to_numpy(dtype=np.float64)
     feature_names = list(df.columns)
+    
     return X, y, feature_names
+
 
 # Run on authors.rda (K=4)
 if __name__ == "__main__":
-    import os
-    import pandas as pd
 
     rda_path = os.path.join("Homework 2", "Code", "Data", "authors.rda")
     X, y, feature_names = load_authors_counts_rda(rda_path)
