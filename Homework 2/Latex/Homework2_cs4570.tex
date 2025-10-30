@@ -218,6 +218,46 @@ Differentiate and set to zero:
 \boxed{\ \lambda_{kj}^{(t+1)}=\frac{\sum_{i=1}^n \gamma_{ik} x_{ij}}{\sum_{i=1}^n \gamma_{ik}}\ }.
 \]
 
+\subsection{ Interpretation and Comparison of Poisson and Gaussian Mixture Models.}
+
+Both the Poisson Mixture Model (PMM) and the Gaussian Mixture Model (GMM) successfully converged and achieved almost identical clustering performance on the
+author--chapter word-frequency data.
+
+
+The PMM converged in 16 iterations with a clustering purity of \textbf{0.8989},
+while the GMM converged in 14 iterations with a purity of \textbf{0.9001}.
+The learned author--cluster mappings were consistent across models:
+Cluster~0 corresponds to \emph{Shakespeare}, Cluster~1 to \emph{London}, and Clusters~2--3 to \emph{Austen},
+indicating that Austen's writing exhibits two stylistically distinct sub-modes.
+
+Examining the estimated centroids revealed interpretable linguistic patterns.
+The Shakespeare cluster assigns high weights to archaic forms such as
+\emph{thou}, \emph{thy}, and \emph{hath},
+capturing the syntax of Early Modern English.
+London's centroid emphasizes neutral verbs like \emph{was}, \emph{had},
+and \emph{were}, representing narrative realism,
+while Austen's two clusters differ primarily in pronoun and modal-verb usage:
+one dominated by \emph{she, her, would, could} (social dialogue tone),
+and the other by \emph{my, our, only, such} (introspective narration).
+
+By inspecting the soft responsibilities $\gamma_{ik}$,
+chapters with $\max_k \gamma_{ik} < 0.6$ were identified as
+\emph{low-certainty chapters}.
+These typically occur near stylistic transitions
+or among authors with overlapping vocabularies.
+Such ambiguous sections highlight that soft clustering provides richer insights
+than hard assignments.
+
+Overall, both mixture models achieve roughly 90\% purity and uncover meaningful
+stylistic structures.
+While the GMM yields a marginally higher purity,
+the Poisson mixture remains theoretically more appropriate
+for discrete count data and offers comparable empirical performance.
+
+% -------------------------------
+% Problem 2
+% -------------------------------
+\section{Open-Ended Cluster Analysis - Breast Cancer gene expression data.}
 
 
 
