@@ -1,7 +1,7 @@
 '''
 Author: Chuyang Su cs4570@columbia.edu
 Date: 2025-10-29 17:59:43
-LastEditTime: 2025-10-30 13:48:43
+LastEditTime: 2025-10-30 14:06:41
 FilePath: /Unsupervised-Learning-Homework/Homework 2/Code/Problem_1_b.py
 Description: 
     EM algorithm for a mixture of Poisson distributions and fit to the author data with K = 4 clusters.
@@ -120,17 +120,45 @@ if __name__ == "__main__":
     purity = float(cont.max(axis=0).sum() / len(y))
     cluster_to_author = {int(k): str(y_names[int(np.argmax(cont[:, k]))]) for k in range(K)}
 
+    threshold = 0.6
+    max_resp = res.gamma.max(axis=1)
+    low_certainty_idx = np.where(max_resp < threshold)[0].tolist()
+
+    low_certainty_info = []
+    for i in low_certainty_idx:
+        low_certainty_info.append({
+            "chapter_index": int(i),
+            "author_true": str(y_names[y[i]]),
+            "pred_cluster": int(hard[i]),
+            "max_gamma": float(max_resp[i]),
+            "responsibilities": [float(v) for v in res.gamma[i]]
+        })
+
     out_path = os.path.join(RESULT_DIR, f"poisson_mixture_result.json")
     result_json = {
         "converged": bool(res.converged),
         "n_iter": int(res.n_iter),
         "final_loglik": float(res.loglik_hist[-1]),
-        "purity": purity,
         "n_authors": int(K),
         "authors": y_names.tolist(),
         "feature_columns": feat_cols,
-        "cluster_sizes": np.bincount(hard, minlength=K).astype(int).tolist(),
-        "cluster_to_author_map": {str(k): v for k, v in cluster_to_author.items()}
+        "em": {
+            "pi": res.pi.astype(float).tolist(),
+            "lambda": res.lmbda.astype(float).tolist(),
+            "loglik_hist": [float(v) for v in res.loglik_hist]
+        },
+        "predictions": {
+            "cluster_pred": [int(v) for v in hard],
+            "responsibilities": res.gamma.astype(float).tolist()
+        },
+        "validation": {
+            "purity": float(purity),
+            "contingency": cont.astype(int).tolist(),
+            "cluster_sizes": np.bincount(hard, minlength=K).astype(int).tolist(),
+            "cluster_to_author_map": {str(k): v for k, v in cluster_to_author.items()},
+            "low_certainty_chapters": low_certainty_info,
+            "threshold": float(threshold)
+        }
     }
 
     with open(out_path, "w", encoding="utf-8") as f:

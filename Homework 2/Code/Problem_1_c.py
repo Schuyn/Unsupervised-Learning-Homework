@@ -1,7 +1,7 @@
 '''
 Author: Chuyang Su cs4570@columbia.edu
 Date: 2025-10-29 21:47:48
-LastEditTime: 2025-10-30 13:47:53
+LastEditTime: 2025-10-30 14:15:24
 FilePath: /Unsupervised-Learning-Homework/Homework 2/Code/Problem_1_c.py
 Description: 
     Fit a Gaussian mixture model to the author data.
@@ -133,6 +133,7 @@ if __name__ == "__main__":
     )
     hard = gmm_predict(X, res)
 
+        # 3) Validation（使用 author 标签，仅用于评估）
     cont = np.zeros((K, K), dtype=int)
     for yi, hi in zip(y, hard):
         cont[yi, hi] += 1
@@ -141,34 +142,50 @@ if __name__ == "__main__":
         str(k): str(y_names[int(np.argmax(cont[:, k]))]) for k in range(K)
     }
 
+    # 3.1) Identify low-certainty chapters
+    threshold = 0.6
+    max_resp = res.gamma.max(axis=1)
+    low_idx = np.where(max_resp < threshold)[0].tolist()
+    low_certainty_info = []
+    for i in low_idx:
+        low_certainty_info.append({
+            "chapter_index": int(i),
+            "author_true": str(y_names[y[i]]),
+            "pred_cluster": int(hard[i]),
+            "max_gamma": float(max_resp[i]),
+            "responsibilities": [float(v) for v in res.gamma[i]]
+        })
+
+    # 4) Save all results into JSON
     out_path = os.path.join(RESULT_DIR, f"gmm_result.json")
 
     result_json = {
-        "model": "Gaussian Mixture (Diagonal Covariance)",
-        "data_path": DATA_PATH,
-        "feature_columns": feat_cols,
-        "authors": y_names.tolist(),
+        "converged": bool(res.converged),
+        "n_iter": int(res.n_iter),
+        "final_loglik": float(res.loglik_hist[-1]),
         "n_authors": int(K),
+        "authors": y_names.tolist(),
+        "feature_columns": feat_cols,
         "em": {
-            "converged": bool(res.converged),
-            "n_iter": int(res.n_iter),
-            "loglik_hist": [float(v) for v in res.loglik_hist],
             "pi": res.pi.astype(float).tolist(),
             "mu": res.mu.astype(float).tolist(),
-            "var_diag": res.var.astype(float).tolist()
+            "var_diag": res.var.astype(float).tolist(),
+            "loglik_hist": [float(v) for v in res.loglik_hist]
         },
         "predictions": {
-            "author_true": [str(a) for a in y_names[y]],
             "cluster_pred": [int(v) for v in hard],
             "responsibilities": res.gamma.astype(float).tolist()
         },
         "validation": {
+            "purity": float(purity),
             "contingency": cont.astype(int).tolist(),
-            "purity": purity,
             "cluster_sizes": np.bincount(hard, minlength=K).astype(int).tolist(),
-            "cluster_to_author_map": cluster_to_author
+            "cluster_to_author_map": {str(k): v for k, v in cluster_to_author.items()},
+            "low_certainty_chapters": low_certainty_info,
+            "threshold": float(threshold)
         }
     }
 
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(result_json, f, ensure_ascii=False, indent=2)
+
