@@ -1,7 +1,7 @@
 '''
 Author: Chuyang Su cs4570@columbia.edu
 Date: 2025-10-29 17:59:43
-LastEditTime: 2025-10-30 12:08:45
+LastEditTime: 2025-10-30 12:47:18
 FilePath: /Unsupervised-Learning-Homework/Homework 2/Code/Problem_1_b.py
 Description: 
     EM algorithm for a mixture of Poisson distributions and fit to the author data with K = 4 clusters.
@@ -14,30 +14,137 @@ import numpy as np
 import pandas as pd
 from scipy.special import logsumexp
 from sklearn.cluster import KMeans
+from sklearn.metrics import adjusted_rand_score, normalized_mutual_info_score
+from sklearn.preprocessing import LabelEncoder
+
+# def load_authors_counts_rda(path_rda):
+#     import pyreadr
+
+#     res = pyreadr.read_r(path_rda)
+#     obj = next(iter(res.values()))
+#     if not isinstance(obj, pd.DataFrame):
+#         obj = pd.DataFrame(obj)
+#     df = obj.copy()
+
+#     # Detect Author and Book ID columns
+#     label_col = next((c for c in ["Author", "author", "AUTHORS"] if c in df.columns), None)
+#     bookid_col = next((c for c in ["Book.ID", "BookID", "book_id", "Book ID"] if c in df.columns), None)
+
+#     if bookid_col:
+#         df = df.drop(columns=[bookid_col])
+
+#     y = None
+#     if label_col:
+#         y_raw = df[label_col]
+#         df = df.drop(columns=[label_col])
+
+#         # robust 1D conversion
+#         if isinstance(y_raw, pd.Series):
+#             y = y_raw.to_numpy()
+#         elif isinstance(y_raw, pd.DataFrame):
+#             y = y_raw.iloc[:, 0].to_numpy()
+#         else:
+#             y = np.array(y_raw)
+
+#         # flatten & cast to str (avoid categorical weirdness)
+#         y = np.ravel(y).astype(str)
+
+#     X = df.to_numpy(dtype=np.float64)
+#     feature_names = list(df.columns)
+    
+#     if y is not None and y.shape[0] != X.shape[0]:
+#         # handle rare case: y is nested object of length 1 containing the vector
+#         if y.shape[0] == 1 and hasattr(y, "item"):
+#             maybe = y.item()
+#             if isinstance(maybe, (list, np.ndarray)):
+#                 y = np.ravel(np.array(maybe)).astype(str)
+                
+#     return X, y, feature_names
+
 
 def load_authors_counts_rda(path_rda):
     import pyreadr
+    import re
 
+    # ---- read R object ----
     res = pyreadr.read_r(path_rda)
     obj = next(iter(res.values()))
     if not isinstance(obj, pd.DataFrame):
         obj = pd.DataFrame(obj)
     df = obj.copy()
 
-    # Detect Author and Book ID columns
-    label_col = next((c for c in ["Author", "author", "AUTHORS"] if c in df.columns), None)
-    bookid_col = next((c for c in ["Book.ID", "BookID", "book_id", "Book ID"] if c in df.columns), None)
+    # standardize column names for matching (keep original for output)
+    def norm(s): 
+        return re.sub(r'\s+', '', str(s)).lower()
 
-    if bookid_col:
-        df = df.drop(columns=[bookid_col])
+    cols_norm = {c: norm(c) for c in df.columns}
+    inv_norm = {v: k for k, v in cols_norm.items()}
 
+    # if author is in index, pull it out
+    idx_name = df.index.name
+    if idx_name and norm(idx_name) in {"author","authors","label"}:
+        df = df.reset_index()
+
+    # detect author column (case/space-insensitive)
+    author_keys = ["author","authors","label"]
+    author_col = None
+    for k in author_keys:
+        if k in cols_norm.values():
+            author_col = inv_norm[k]; break
+
+    # detect and drop book id column(s)
+    bookid_keys = {"book.id","bookid","book_id","book id"}
+    for k in bookid_keys:
+        if k in cols_norm.values():
+            df.drop(columns=[inv_norm[k]], inplace=True, errors="ignore")
+
+    # extract y robustly
     y = None
-    if label_col:
-        y = df[label_col].to_numpy()
-        df = df.drop(columns=[label_col])
+    if author_col is not None and author_col in df.columns:
+        y_raw = df[author_col]
+        # drop author column from feature frame
+        df = df.drop(columns=[author_col])
+
+        # robust conversion to 1D numpy array of str
+        if isinstance(y_raw, pd.Series):
+            y = y_raw.to_numpy()
+        elif isinstance(y_raw, pd.DataFrame):
+            y = y_raw.iloc[:, 0].to_numpy()
+        else:
+            y = np.array(y_raw)
+
+        # unwrap nested object like array([list([...])], dtype=object)
+        # keep unwrapping until y is 1D with length == n_rows
+        max_unwrap = 5
+        unwrap_cnt = 0
+        while True:
+            y = np.ravel(y)
+            if y.dtype == object and y.size == 1 and hasattr(y[0], "__iter__") and not isinstance(y[0], (str, bytes)):
+                y = np.array(list(y[0]))
+                unwrap_cnt += 1
+                if unwrap_cnt > max_unwrap:
+                    break
+            else:
+                break
+
+        y = np.ravel(y).astype(str)
+    else:
+        # no author column; leave y=None
+        y = None
+
+    # keep only numeric (counts) columns; coerce non-numeric to NaN->0
+    for c in df.columns:
+        if not pd.api.types.is_numeric_dtype(df[c]):
+            df[c] = pd.to_numeric(df[c], errors="coerce")
+    df = df.fillna(0)
 
     X = df.to_numpy(dtype=np.float64)
     feature_names = list(df.columns)
+
+    # final sanity check
+    if y is not None and y.shape[0] != X.shape[0]:
+        raise ValueError(f"[load_authors_counts_rda] label length {y.shape[0]} != X rows {X.shape[0]}")
+
     return X, y, feature_names
 
 
@@ -49,7 +156,7 @@ def em_poisson_mixture(
     init="kmeans", 
     random_state=25, 
     verbose=False
-):
+):  
     rng = np.random.default_rng(random_state)
     n, p = X.shape
 
@@ -133,6 +240,23 @@ if __name__ == "__main__":
     for i in low_idx:
         print(f"  Chapter {i}: certainty={certainty[i]:.3f}")
 
+    # Validation
+    y_vec = np.ravel(y_true).astype(str)
+    assert y_vec.shape[0] == X.shape[0], f"Label length {y_vec.shape[0]} != X rows {X.shape[0]}"
+    le = LabelEncoder()
+    y_enc = le.fit_transform(y_vec)
+    ari = adjusted_rand_score(y_enc, hard_labels)
+    nmi = normalized_mutual_info_score(y_enc, hard_labels)
+
+    print("\n=== External Validation (Author labels only for evaluation) ===")
+    print(f"Adjusted Rand Index (ARI): {ari:.4f}")
+    print(f"Normalized Mutual Information (NMI): {nmi:.4f}")
+
+    out_csv = os.path.join(result_dir, "poisson_validation.csv")  # 在 1c 改为 "gmm_validation.csv"
+    model_name = "Poisson"  # 在 1c 改为 "Gaussian"
+    pd.DataFrame({"Model":[model_name], "ARI":[ari], "NMI":[nmi]}).to_csv(out_csv, index=False)
+    
+    
     # Save interpretation tables
     pd.DataFrame({
         "chapter_id": np.arange(len(certainty)),
