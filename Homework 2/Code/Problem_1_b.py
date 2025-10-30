@@ -1,7 +1,7 @@
 '''
 Author: Chuyang Su cs4570@columbia.edu
 Date: 2025-10-29 17:59:43
-LastEditTime: 2025-10-30 11:46:56
+LastEditTime: 2025-10-30 12:08:45
 FilePath: /Unsupervised-Learning-Homework/Homework 2/Code/Problem_1_b.py
 Description: 
     EM algorithm for a mixture of Poisson distributions and fit to the author data with K = 4 clusters.
@@ -42,7 +42,14 @@ def load_authors_counts_rda(path_rda):
 
 
 # EM Algorithm for Poisson Mixture
-def em_poisson_mixture(X, K, max_iter=300, tol=1e-6, init="kmeans", random_state=42, verbose=False):
+def em_poisson_mixture(
+    X, K, 
+    max_iter=300, 
+    tol=1e-6, 
+    init="kmeans", 
+    random_state=25, 
+    verbose=False
+):
     rng = np.random.default_rng(random_state)
     n, p = X.shape
 
@@ -108,7 +115,6 @@ if __name__ == "__main__":
     pd.DataFrame(Lambda, columns=feature_names).to_csv(os.path.join(result_dir, "poisson_lambda.csv"), index_label="cluster")
     pd.DataFrame(gamma, columns=[f"cluster_{k}" for k in range(K)]).to_csv(os.path.join(result_dir, "poisson_gamma.csv"), index=False)
     pd.DataFrame({"hard_label": hard_labels, "certainty": certainty}).to_csv(os.path.join(result_dir, "poisson_labels.csv"), index=False)
-    print(f"✅ All results saved in {result_dir}")
 
     top_m = 10
     print("\nMixture Weights (π_k):")
