@@ -289,16 +289,74 @@ Subsequent clustering was performed using seven algorithms: \textbf{KMeans}, \te
 Given that the biological subtype reference (PAM50) contains five classes, all parametric clustering methods were set to $K=5$, while DBSCAN automatically determined the number of clusters.
 
 Among these, \textbf{Spectral Clustering} was treated as a special case. 
-Because it internally constructs a similarity graph and performs Laplacian eigen-decomposition—conceptually similar to UMAP’s graph-based embedding—it is inappropriate to apply Spectral Clustering directly in UMAP space. 
-Doing so would perform a second spectral decomposition on an already nonlinear manifold, likely distorting the intrinsic geometry. 
+Because it internally constructs a similarity graph and performs Laplacian eigen-decomposition—conceptually similar to UMAP’s graph-based embedding—it is inappropriate to apply Spectral Clustering directly in UMAP space.
+Doing so would perform a second spectral decomposition on an already nonlinear manifold, likely distorting the intrinsic geometry.
 Therefore, Spectral Clustering was conducted on the PCA(30D) features instead, ensuring consistency with its theoretical formulation.
 
 For the Agglomerative Clustering, I compared only the \textbf{Ward}, \textbf{Average}, and \textbf{Complete} linkages, excluding \textbf{Single linkage} for three reasons: 
 (1) it is highly sensitive to outliers and prone to chaining effects, which are amplified in high-dimensional continuous data; 
 (2) its computational cost is high while its silhouette scores are unstable; and 
-(3) the remaining three linkages already represent the major clustering behaviors—variance minimization (Ward), mean-distance smoothing (Average), and maximal-separation enforcement (Complete).
+(3) the remaining three linkages already represent the major clustering behaviors.
 
-\vspace{0.5em}
+All the clustering results expect of hierachical clusterings is shown below:
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.22\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{"Figures/cluster__kmeans_k5_umap2.png"}
+        \caption{K-Means}
+        \label{fig:kmeans}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.22\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{"Figures/cluster__gmm_k5_umap2.png"}
+        \caption{Gaussian Mixture Model}
+        \label{fig:GMM}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.22\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{"Figures/cluster__spectral_pca_umap2.png"}
+        \caption{Spectral Clustering in PCA(30)}
+        \label{fig:spectral_clustering}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.22\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{"Figures/cluster__dbscan_eps0p5_min10_umap2.png"}
+        \caption{DBSCAN}
+        \label{fig:dbscan}
+    \end{subfigure}
+    \label{fig:Clustering_unhier}
+\end{figure}
+
+And three types of hierachical clusterings' results are:
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.31\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{"Figures/cluster__agg_ward_k5_umap2.png"}
+        \caption{Ward}
+        \label{fig:ward}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.31\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{"Figures/cluster__agg_average_k5_umap2.png"}
+        \caption{Average}
+        \label{fig:average}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.31\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{"Figures/cluster__agg_complete_k5_umap2.png"}
+        \caption{Complete}
+        \label{fig:complete}
+        \end{subfigure}
+    \label{fig:hierachical_clusterings}
+\end{figure}
+
 \noindent\textbf{Insights from the clustering results.}
 Rather than directly comparing algorithmic performance, the focus here is on what each clustering method reveals about the \emph{data manifold itself}. 
 Across methods, two key structural patterns emerge. 
@@ -312,6 +370,7 @@ Although this underestimates the total number of subtypes, it accurately reflect
 Taken together, these clustering outcomes indicate that the BRCA expression data contain both discrete and continuous subtype structures—Basal-like being compact and distinct, 
 whereas Luminal~A/B lie on a continuum of transcriptional profiles—consistent with known biological heterogeneity among breast cancer subtypes.
 
+\subsection{}
 
 
 % -------------------------------
