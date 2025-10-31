@@ -1,7 +1,7 @@
 '''
 Author: Chuyang Su cs4570@columbia.edu
 Date: 2025-10-30 14:36:11
-LastEditTime: 2025-10-30 21:13:34
+LastEditTime: 2025-10-30 22:04:37
 FilePath: /Unsupervised-Learning-Homework/Homework 2/Code/Problem_2.py
 Description: 
     Apply clustering techniques(KMeans, GMM, Spectral Clustering, Agglomerative Clustering, DBSCAN) to explore the BRCA gene expression data set.
@@ -237,7 +237,6 @@ def clustering_all(X_umap10, X_umap2, X_spectral_input, outdir: Path, seed=0):
         legend_title="Cluster"
     )
 
-    
     labels = GaussianMixture(
         n_components=k, covariance_type="full",
         random_state=seed, n_init=5
@@ -321,7 +320,7 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--data_path", type=str, default="Homework 2/Code/Data/BRCA_data.csv")
-    parser.add_argument("--outdir", type=str, default="Homework 2/Code/Result/Problem_2")
+    parser.add_argument("--outdir", type=str, default="Homework 2\Latex\Figures")
     parser.add_argument("--seed", type=int, default=25)
     args = parser.parse_args()
     run(data_path=args.data_path, outdir=args.outdir, seed=args.seed)

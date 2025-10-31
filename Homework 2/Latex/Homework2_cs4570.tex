@@ -260,6 +260,58 @@ for discrete count data and offers comparable empirical performance.
 \section{Open-Ended Cluster Analysis - Breast Cancer gene expression data.}
 \subsection{Apply clustering techniques to explore this data set.}
 
+To explore the internal structure of the BRCA gene-expression dataset, I first applied a two-step dimensionality reduction approach using \textbf{PCA} followed by \textbf{UMAP}. 
+
+Based on conclusions drawn in Homework 1, this strategy provides an effective balance between global and local structure preservation: 
+PCA removes redundant noise variables while retaining the main variance directions, and UMAP further compresses the PCA-transformed space, producing a low-dimensional embedding that reveals local neighborhood structure and facilitates visual interpretation. 
+Following the empirical results from Homework 1, I selected 30 principal components (the ``elbow'' point in the cumulative variance curve) for PCA, 
+and adopted UMAP parameters $n\_neighbors=10$, $min\_dist=0.0$, and $n\_components=2$ or $10$, where the two-dimensional embedding was used for visualization and the ten-dimensional representation served as the feature space for clustering.
+The results are shown below:
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{"Figures/pam50__pca2.png"}
+        \caption{PAM50 subtypes visualized in PCA(2D) space.}
+        \label{fig:pam50_pca2}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{"Figures/pam50__umap2.png"}
+        \caption{PAM50 subtypes visualized in UMAP(2D) space.}
+        \label{fig:pam50_umap2}
+    \end{subfigure}
+    \label{fig:pam50_embeddings}
+\end{figure}
+
+Subsequent clustering was performed using seven algorithms: \textbf{KMeans}, \textbf{Gaussian Mixture Model (GMM)}, \textbf{Spectral Clustering}, \textbf{DBSCAN}, and \textbf{Agglomerative Clustering} with three linkages (Ward, Average, and Complete). 
+Given that the biological subtype reference (PAM50) contains five classes, all parametric clustering methods were set to $K=5$, while DBSCAN automatically determined the number of clusters.
+
+Among these, \textbf{Spectral Clustering} was treated as a special case. 
+Because it internally constructs a similarity graph and performs Laplacian eigen-decomposition—conceptually similar to UMAP’s graph-based embedding—it is inappropriate to apply Spectral Clustering directly in UMAP space. 
+Doing so would perform a second spectral decomposition on an already nonlinear manifold, likely distorting the intrinsic geometry. 
+Therefore, Spectral Clustering was conducted on the PCA(30D) features instead, ensuring consistency with its theoretical formulation.
+
+For the Agglomerative Clustering, I compared only the \textbf{Ward}, \textbf{Average}, and \textbf{Complete} linkages, excluding \textbf{Single linkage} for three reasons: 
+(1) it is highly sensitive to outliers and prone to chaining effects, which are amplified in high-dimensional continuous data; 
+(2) its computational cost is high while its silhouette scores are unstable; and 
+(3) the remaining three linkages already represent the major clustering behaviors—variance minimization (Ward), mean-distance smoothing (Average), and maximal-separation enforcement (Complete).
+
+\vspace{0.5em}
+\noindent\textbf{Insights from the clustering results.}
+Rather than directly comparing algorithmic performance, the focus here is on what each clustering method reveals about the \emph{data manifold itself}. 
+Across methods, two key structural patterns emerge. 
+First, the dataset contains both compact and diffuse regions: \textbf{Basal-like} and \textbf{Normal-like} samples consistently form dense, isolated clusters, 
+while \textbf{Luminal~A} and \textbf{Luminal~B} exhibit gradual overlap, suggesting a continuous transition rather than distinct boundaries. 
+Second, the overall data distribution is non-spherical and heterogeneous in density, which explains why algorithms assuming isotropic clusters (KMeans, GMM, Ward) perform similarly and fail to separate overlapping subtypes. 
+
+\textbf{DBSCAN} highlights these density variations most clearly—it detects three main groups and labels the remaining sparse regions as noise. 
+Although this underestimates the total number of subtypes, it accurately reflects the intrinsic density imbalance of the dataset: the rarest subtypes (\textbf{HER2-enriched}, \textbf{Normal-like}) are naturally absorbed as low-density regions. 
+\textbf{Average linkage} produces smoother transitions that capture the gradual relationship between Luminal subtypes, while \textbf{Complete linkage} emphasizes inter-cluster separation. 
+Taken together, these clustering outcomes indicate that the BRCA expression data contain both discrete and continuous subtype structures—Basal-like being compact and distinct, 
+whereas Luminal~A/B lie on a continuum of transcriptional profiles—consistent with known biological heterogeneity among breast cancer subtypes.
+
 
 
 % -------------------------------
