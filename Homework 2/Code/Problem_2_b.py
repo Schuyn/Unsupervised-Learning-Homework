@@ -1,23 +1,11 @@
 '''
 Author: Chuyang Su cs4570@columbia.edu
 Date: 2025-10-31 02:09:44
-LastEditTime: 2025-10-31 02:09:53
+LastEditTime: 2025-10-31 02:50:01
 FilePath: /Unsupervised-Learning-Homework/Homework 2/Code/Problem_2_b.py
 Description: 
     Validation.
 '''
-```python
-# -*- coding: utf-8 -*-
-"""
-HW2 • Problem 2(b) — Validation & Model Selection
-Elegant version that reuses 2(a) utilities.
-
-Usage:
-  python Problem_2_b.py --data_path "Homework 2/Code/Data/BRCA_data.csv" \
-                        --outdir "Homework 2/Code/Result/Problem_2" \
-                        --seed 25
-"""
-
 import os
 os.environ.setdefault("OMP_NUM_THREADS", "2")
 os.environ.setdefault("MKL_NUM_THREADS", "2")
@@ -29,6 +17,9 @@ warnings.filterwarnings("ignore")
 from pathlib import Path
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from pathlib import Path
 
 from packaging.version import parse as vparse
 import sklearn
@@ -38,10 +29,8 @@ from sklearn.metrics import silhouette_score, adjusted_rand_score
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.utils import check_random_state
 
-# ---- reuse 2(a) code ----
 from Problem_2_a import load_brca, compute_embeddings
 
-# ----------------- helpers -----------------
 def _kmeans_fit_predict(X, k, seed):
     return KMeans(n_clusters=k, n_init=20, random_state=seed).fit_predict(X)
 
@@ -80,7 +69,6 @@ def _silhouette_safe(X, labels):
         return np.nan
 
 def _bootstrap_stability(X, fit_fn, n_boot=10, seed=0):
-    """Median ARI between full-data labels and bootstrap labels restricted to subset."""
     rng = check_random_state(seed)
     full_labels = fit_fn(X)
     if len(np.unique(full_labels)) <= 1:
@@ -198,7 +186,6 @@ def pick_best_per_method(df: pd.DataFrame) -> pd.DataFrame:
         out.append(sub.iloc[[0]])
     return pd.concat(out, ignore_index=True) if out else pd.DataFrame()
 
-# ----------------- driver -----------------
 def run(
     data_path="Homework 2/Code/Data/BRCA_data.csv",
     outdir="Homework 2/Code/Result/Problem_2",
@@ -226,13 +213,53 @@ def run(
     best_csv = outdir / "problem2b_best.csv"
     df.to_csv(all_csv, index=False)
     pick_best_per_method(df).to_csv(best_csv, index=False)
+    
+    dfk = df[df["K"].notna()].copy()
+    dfk["K"] = dfk["K"].astype(int)
+
+    # unify method labels for legend
+    label_map = {
+        "kmeans": "KMeans",
+        "gmm": "GMM",
+        "spectral_pca": "Spectral (PCA)",
+        "agg_ward": "Agg-Ward",
+        "agg_average": "Agg-Average",
+        "agg_complete": "Agg-Complete",
+    }
+    dfk["Method"] = dfk["method"].map(label_map)
+
+    palette = {
+        "KMeans": "#1f77b4",
+        "GMM": "#2ca02c",
+        "Spectral (PCA)": "#ff7f0e",
+        "Agg-Ward": "#9467bd",
+        "Agg-Average": "#d62728",
+        "Agg-Complete": "#8c564b",
+    }
+
+    # ---- plotting helper ----
+    def plot_metric(metric, ylabel):
+        plt.figure(figsize=(7,5), dpi=130)
+        sns.lineplot(data=dfk, x="K", y=metric, hue="Method", marker="o", palette=palette)
+        plt.xlabel("Number of Clusters (K)")
+        plt.ylabel(ylabel)
+        plt.title(f"{ylabel} vs K across clustering methods")
+        plt.legend(bbox_to_anchor=(1.02,1), loc="upper left", frameon=False)
+        plt.grid(True, linewidth=0.4, alpha=0.3)
+        plt.tight_layout()
+        plt.savefig(outdir / f"validation_{metric.lower()}_vs_K.png", bbox_inches="tight")
+        plt.close()
+
+    # ---- draw three figures ----
+    plot_metric("silhouette", "Silhouette Score")
+    plot_metric("stability", "Stability (Bootstrap ARI)")
+    plot_metric("generalizability", "Generalizability (Test Silhouette)")
 
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--data_path", type=str, default="Homework 2/Code/Data/BRCA_data.csv")
-    parser.add_argument("--outdir", type=str, default="Homework 2/Code/Result/Problem_2")
+    parser.add_argument("--outdir", type=str, default="Homework 2/Latex/Figures")
     parser.add_argument("--seed", type=int, default=25)
     args = parser.parse_args()
     run(data_path=args.data_path, outdir=args.outdir, seed=args.seed)
-```

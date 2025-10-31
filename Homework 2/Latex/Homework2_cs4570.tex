@@ -372,6 +372,108 @@ whereas Luminal~A/B lie on a continuum of transcriptional profiles—consistent 
 
 \subsection{Implement cluster validation techniques.}
 
+In this section, I evaluate the clustering results obtained in 2(a) through
+systematic parameter tuning and validation. 
+For algorithms that require specifying the number of clusters $K$ 
+(\textit{KMeans}, \textit{GMM}, \textit{Spectral Clustering}, 
+and \textit{Agglomerative Clustering} with three linkages),
+I performed a grid search over $K = 2,\ldots,9$ 
+and computed three complementary validation criteria:
+
+\begin{itemize}
+  \item \textbf{Silhouette Score} — measures intra-cluster cohesion and inter-cluster separation;
+  \item \textbf{Stability} — estimated via bootstrap resampling, quantified by the median 
+        Adjusted Rand Index (ARI) between full-data and bootstrap partitions;
+  \item \textbf{Generalizability} — assessed by a train--test split,
+        where cluster assignments were propagated from training to testing samples 
+        (via centroids or $k$NN label transfer), and the Silhouette score 
+        on the test set was reported.
+\end{itemize}
+
+For \textbf{DBSCAN}, which is density-based and does not rely on $K$,
+a two-dimensional grid search was conducted across 
+$\varepsilon \in \{0.3, 0.4, 0.5, 0.6, 0.7\}$ and 
+$\text{min\_samples} \in \{5, 10, 15\}$.
+Each configuration was evaluated using the same three validation criteria.
+Additionally, the $k$-distance graph was inspected to locate the elbow point 
+corresponding to a suitable $\varepsilon$ threshold.
+
+All validation computations were performed on the same reduced feature spaces,
+PCA (30D) for Spectral Clustering, UMAP(10D) for others,
+to ensure consistency with the embeddings generated in Section 2(a).
+
+\subsubsection*{Results of Validation Metrics}
+
+Table~\ref{tab:validation_best} summarizes the best-performing configurations 
+for each clustering method according to the combined Silhouette, Stability, 
+and Generalizability criteria.
+
+\begin{table}[H]
+\centering
+\caption{Best validation results per method.}
+\begin{tabular}{lcccccc}
+\toprule
+Method & $K$ & $\varepsilon$ & min\_samples & Silhouette & Stability & Generalizability \\
+\midrule
+KMeans & 2 & – & – & 0.549 & \textbf{0.994} & 0.468 \\
+GMM & 2 & – & – & 0.551 & 0.983 & 0.473 \\
+Spectral (PCA) & 2 & – & – & 0.205 & 0.959 & 0.217 \\
+Agglomerative (Ward) & 2 & – & – & 0.558 & 0.673 & 0.481 \\
+Agglomerative (Average) & 2 & – & – & \textbf{0.570} & 0.864 & \textbf{0.517} \\
+Agglomerative (Complete) & 2 & – & – & 0.487 & 0.535 & 0.444 \\
+DBSCAN & – & 0.3 & 15 & 0.292 & 0.929 & 0.344 \\
+\bottomrule
+\end{tabular}
+\label{tab:validation_best}
+\end{table}
+
+Across all $K$-based algorithms, the optimal number of clusters was consistently
+$K=2$.  This indicates that the BRCA gene-expression manifold
+is dominated by two large-scale density regions rather than five fully separated clusters,
+which is biologically plausible since Luminal~A/B and HER2-enriched subtypes form a
+continuous spectrum, while Basal-like and Normal-like remain distinct.
+
+\subsubsection*{Discussion and Selection of the Best Result}
+
+Among all evaluated methods, the \textbf{Agglomerative Clustering (Average linkage, $K=2$)}
+achieved the highest Silhouette (0.57) together with strong stability (0.86) 
+and generalizability (0.52), providing the best trade-off between 
+cluster compactness and robustness.
+KMeans and GMM yielded similar two-cluster partitions with excellent stability ($>0.98$),
+indicating consistent global structure but limited ability to separate overlapping subtypes.
+Spectral Clustering performed worse due to over-smoothing in PCA space,
+and DBSCAN emphasized density variation rather than discrete boundaries,
+identifying a few compact regions while labeling sparse points as noise.
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{Figures/validation_silhouette_vs_K.png}
+        \caption{Silhouette vs $K$}
+        \label{fig:silhouette_k}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{Figures/validation_stability_vs_K.png}
+        \caption{Stability vs $K$}
+        \label{fig:stability_k}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{Figures/validation_generalizability_vs_K.png}
+        \caption{Generalizability vs $K$}
+        \label{fig:generalizability_k}
+    \end{subfigure}
+    \caption{Validation metrics across different cluster numbers.}  
+    \label{fig:validation_k_curves}
+\end{figure}
+
+Figure \ref{fig:validation_k_curves} illustrates the variation of validation metrics with respect to the number of clusters $K$.
+
+\subsection{Interpret your cluster findings with respect to the metadata provided.}
 
 
 
