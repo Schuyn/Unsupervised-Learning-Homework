@@ -474,9 +474,26 @@ identifying a few compact regions while labeling sparse points as noise.
 Figure \ref{fig:validation_k_curves} illustrates the variation of validation metrics with respect to the number of clusters $K$.
 
 \subsection{Interpret your cluster findings with respect to the metadata provided.}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\linewidth]{Figures/2c_overlay_umap2.png}
+    \caption{Overlay of PAM50 subtypes and the best clustering result 
+    (Agglomerative Average, $K=2$) in UMAP(2D) space.}
+    \label{fig:2c_overlay_umap2}
+\end{figure}
 
-
-
+The two clusters discovered by the optimal Agglomerative (Average) model ($K=2$) 
+show a clear correspondence with the clinical PAM50 categories. 
+As shown in Figure~\ref{fig:2c_overlay_umap2}, one cluster primarily groups 
+\textbf{Basal-like} and \textbf{Normal-like} tumors, 
+while the other aggregates \textbf{Luminal~A}, \textbf{Luminal~B}, 
+and \textbf{HER2-enriched} samples. 
+This separation captures the well-known \textit{luminal--basal dichotomy} in breast cancer biology: 
+luminal tumors are typically hormone-receptor positive and exhibit similar expression patterns, 
+whereas basal tumors represent the triple-negative subtype with distinct molecular characteristics. 
+Therefore, the unsupervised clustering not only aligns with the known clinical taxonomy, 
+but also highlights that the BRCA gene-expression landscape is dominated by 
+two broad transcriptional regimes rather than five sharply separated classes.
 
 % -------------------------------
 % Code
