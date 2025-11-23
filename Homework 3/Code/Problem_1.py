@@ -87,3 +87,6 @@ axes[-1].axis('off')
 plt.suptitle('Within-Sector Correlation Analysis', fontsize=14)
 plt.tight_layout()
 plt.savefig(os.path.join(figure_dir, '1a_sector_correlations.png'), dpi=150)
+
+# Problem 1b: Graphical Lasso
+
