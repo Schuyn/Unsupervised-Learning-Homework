@@ -1,7 +1,7 @@
 '''
 Author: Chuyang Su cs4570@columbia.edu
 Date: 2025-11-23 12:04:17
-LastEditTime: 2025-11-23 15:29:45
+LastEditTime: 2025-11-23 15:36:15
 FilePath: /Unsupervised-Learning-Homework/Homework 3/Code/Problem_1.py
 Description: 
     Graphical Models.
@@ -24,6 +24,7 @@ raw_data_file = os.path.join(output_dir, 'raw_stock_data.csv')
 log_returns_file = os.path.join(output_dir, 'log_returns.csv')
 
 tickers = ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "NVDA", "JPM", "BAC", "XOM", "CVX", "JNJ", "PFE", "WMT", "PG", "KO"]
+# 苹果、微软、谷歌、亚马逊、Meta、英伟达、摩根大通、美国银行、埃克森美孚、雪佛龙、强生、辉瑞、沃尔玛、宝洁、可口可乐
 start_date = "2021-01-01"
 
 raw_data = yf.download(tickers, start=start_date, end=None)
@@ -40,8 +41,8 @@ print(f"\nMissing values per stock:\n{log_returns.isnull().sum()}")
 
 # Visual exploration
 # Summary statistics
-print("\nSummary Statistics of Log Returns:")
-print(log_returns.describe())
+summary_stats = log_returns.describe()
+summary_stats.to_csv(os.path.join(output_dir, 'summary_statistics.csv'))
 
 # Plot correlation heatmap
 plt.figure(figsize=(12, 10))
@@ -52,7 +53,6 @@ sns.heatmap(corr_matrix, annot=True, fmt='.2f', cmap='RdBu_r', center=0,
 plt.title('Correlation Matrix of Log Returns', fontsize=14)
 plt.tight_layout()
 plt.savefig(os.path.join(figure_dir, '1a_correlation_heatmap.png'), dpi=150)
-plt.show()
 
 # Plot cumulative returns
 plt.figure(figsize=(14, 8))
@@ -64,18 +64,6 @@ plt.ylabel('Cumulative Return')
 plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
 plt.tight_layout()
 plt.savefig(os.path.join(figure_dir, '1a_cumulative_returns.png'), dpi=150)
-plt.show()
-
-# Boxplot of daily log returns
-plt.figure(figsize=(14, 6))
-log_returns.boxplot()
-plt.title('Distribution of Daily Log Returns by Stock', fontsize=14)
-plt.xlabel('Stock')
-plt.ylabel('Log Return')
-plt.xticks(rotation=45)
-plt.tight_layout()
-plt.savefig(os.path.join(figure_dir, '1a_returns_boxplot.png'), dpi=150)
-plt.show()
 
 # Relationships within different industries
 sectors = {
@@ -99,4 +87,3 @@ axes[-1].axis('off')
 plt.suptitle('Within-Sector Correlation Analysis', fontsize=14)
 plt.tight_layout()
 plt.savefig(os.path.join(figure_dir, '1a_sector_correlations.png'), dpi=150)
-plt.show()
