@@ -1,7 +1,7 @@
 '''
 Author: Chuyang Su cs4570@columbia.edu
 Date: 2025-11-23 17:27:40
-LastEditTime: 2025-11-24 12:17:56
+LastEditTime: 2025-11-24 12:37:55
 FilePath: /Unsupervised-Learning-Homework/Homework 3/Code/hw3_utils.py
 Description: 
     process_stock_data: 处理数据，根据 verbose 参数决定是否画图。
@@ -334,15 +334,12 @@ class Prob1Analysis:
         print(f"\nBest Alpha selected by BIC: {best_alpha}")
         print(f"Number of edges in best graph: {best_graph.get_num_edges()}")
 
-        # 使用 NetworkX 绘制图
         G_nx = nx.DiGraph()
         nodes = best_graph.get_nodes()
 
-        # 添加所有节点
         for i in range(len(nodes)):
             G_nx.add_node(i, label=labels[i])
 
-        # 添加边并判断方向
         graph_edges = best_graph.get_graph_edges()
         directed_edges = []
         undirected_edges = []
@@ -356,42 +353,27 @@ class Prob1Analysis:
             endpoint1 = edge.get_endpoint1()
             endpoint2 = edge.get_endpoint2()
 
-            # 调试：打印端点类型
             ep1_name = endpoint1.name if hasattr(endpoint1, 'name') else str(endpoint1)
             ep2_name = endpoint2.name if hasattr(endpoint2, 'name') else str(endpoint2)
-
-            # 判断边的方向
-            # ARROW 表示箭头端，TAIL 表示尾部端
-            # node1 --endpoint1-endpoint2--> node2
-            # 如果 endpoint2 是 ARROW，箭头指向 node2；如果 endpoint1 是 ARROW，箭头指向 node1
-
             if ep1_name == 'TAIL' and ep2_name == 'ARROW':
-                # node1 --> node2
                 directed_edges.append((idx1, idx2))
                 G_nx.add_edge(idx1, idx2)
             elif ep1_name == 'ARROW' and ep2_name == 'TAIL':
-                # node1 <-- node2
                 directed_edges.append((idx2, idx1))
                 G_nx.add_edge(idx2, idx1)
             else:
-                # 无向边或其他类型
                 undirected_edges.append((idx1, idx2))
                 G_nx.add_edge(idx1, idx2)
                 G_nx.add_edge(idx2, idx1)
 
-        # 绘制图形
         plt.figure(figsize=(16, 16))
         pos = nx.spring_layout(G_nx, k=2.5, iterations=100, seed=42)
 
-        # 绘制节点
         nx.draw_networkx_nodes(G_nx, pos, node_size=2000, node_color='lightblue',
                               alpha=0.9, edgecolors='navy', linewidths=2)
-
-        # 绘制节点标签
         nx.draw_networkx_labels(G_nx, pos, {i: labels[i] for i in range(len(labels))},
                                font_size=11, font_weight='bold')
 
-        # 分别绘制有向边和无向边
         if directed_edges:
             nx.draw_networkx_edges(G_nx, pos, edgelist=directed_edges,
                                   edge_color='darkblue', arrows=True, arrowsize=25,

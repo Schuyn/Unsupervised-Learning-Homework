@@ -168,9 +168,43 @@ Figure~\ref{fig:glasso_cv_curve}.
 
 \begin{figure}[h!]
     \centering
-    \includegraphics[width=0.8\textwidth]{Figures/1b_glasso_cv_curve.png}
-    \caption{Cross-Validated Log-Likelihood Curve for Standard Graphical Lasso}
-    \label{fig:glasso_cv_curve}
+    \begin{minipage}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{Figures/1b_glasso_cv_curve.png}
+        \caption{Cross-Validated Log-Likelihood Curve for Standard Graphical Lasso}
+        \label{fig:glasso_cv_curve}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{Figures/1c_pc_tuning.png}
+        \caption{Best Alpha Selection for PC Algorithm via BIC Score}
+        \label{fig:pc_tuning}
+    \end{minipage}
+\end{figure}
+
+\subsection{PC Algorithm.}
+
+To determine the optimal regularization level for the PC algorithm, we evaluated the
+Bayesian Information Criterion (BIC) across a range of significance thresholds
+$$\alpha \in \{0.001,\,0.01,\,0.05,\,0.1,\,0.2\}.$$
+The resulting BIC scores are shown in
+Figure~\ref{fig:pc_tuning}. Although $\alpha = 0.05$ is
+often used as a conventional threshold, the BIC curve indicates that the model achieves
+its minimum score at $\alpha = 0.1$, implying that this level of sparsity provides the
+best balance between model fit and complexity.
+
+Based on this criterion, we select $\alpha = 0.1$ and construct the final directed graph
+using the PC algorithm. The resulting structure is displayed in
+Figure~\ref{fig:pc_graph}, which represents the learned
+conditional independence relations and the corresponding Markov equivalence
+class under this optimal parameter choice.
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.8\textwidth]{Figures/1c_pc_graph.png}
+    \caption{Best PC Algorithm Graph at $\alpha = 0.1$}
+    \label{fig:pc_graph}
 \end{figure}
 
 \end{document}
