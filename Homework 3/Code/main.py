@@ -1,17 +1,22 @@
 '''
 Author: Chuyang Su cs4570@columbia.edu
 Date: 2025-11-23 17:41:45
-LastEditTime: 2025-11-23 17:41:51
+LastEditTime: 2025-11-23 20:08:56
 FilePath: /Unsupervised-Learning-Homework/Homework 3/Code/main.py
 Description: 
     Main script to run data processing and graphical model fitting for Homework 3.
 '''
-from hw3_utils import process_stock_data
+from hw3_utils import Prob1Analysis
 
 def main():
-    FILENAME = 'log_returns.csv'
-    log_returns = process_stock_data(filepath=FILENAME, verbose=True)
+    # Problem 1a
+    p1=Prob1Analysis()
+    log_returns = p1.process_stock_data(verbose=False)
 
+    # Problem 1b
+    glasso_results = p1.fit_glasso_models(verbose=True)
 
+    
+    
 if __name__ == "__main__":
     main()
