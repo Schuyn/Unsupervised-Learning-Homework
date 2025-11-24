@@ -1,7 +1,7 @@
 '''
 Author: Chuyang Su cs4570@columbia.edu
 Date: 2025-11-23 17:27:40
-LastEditTime: 2025-11-23 20:33:30
+LastEditTime: 2025-11-24 12:17:56
 FilePath: /Unsupervised-Learning-Homework/Homework 3/Code/hw3_utils.py
 Description: 
     process_stock_data: 处理数据，根据 verbose 参数决定是否画图。
@@ -15,8 +15,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy.stats import norm
+import networkx as nx
 from sklearn.covariance import GraphicalLassoCV
 from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LinearRegression
+from causallearn.search.ConstraintBased.PC import pc
 
 class Prob1Analysis:
     def __init__(self,
@@ -223,4 +226,187 @@ class Prob1Analysis:
         
         plt.tight_layout()
         plt.savefig(os.path.join(self.figure_dir, '1b_glasso_precision_matrices.png'), dpi=150)
+        plt.show()
+        
+    def calculate_bic_for_dag(self, data, G):
+        n_samples, n_features = data.shape
+        bic_total = 0
+
+        nodes = G.get_nodes()
+
+        for i, node in enumerate(nodes):
+            neighbors = G.get_adjacent_nodes(node)
+            neighbor_indices = [nodes.index(n) for n in neighbors]
+
+            y = data.iloc[:, i].values
+
+            if len(neighbor_indices) == 0:
+                residuals = y - np.mean(y)
+            else:
+                X = data.iloc[:, neighbor_indices].values
+                model = LinearRegression()
+                model.fit(X, y)
+                residuals = y - model.predict(X)
+
+            variance = max(1e-9, np.var(residuals))
+
+            # Log-likelihood term for this node
+            log_likelihood = -0.5 * n_samples * (np.log(2 * np.pi * variance) + 1)
+
+            # Number of parameters = number of parents + 1 (intercept/variance)
+            k = len(neighbor_indices) + 1
+
+            # BIC = k * ln(n) - 2 * ln(L)
+            bic_node = k * np.log(n_samples) - 2 * log_likelihood
+            bic_total += bic_node
+
+        return bic_total
+    
+    def fit_pc_model(self, alphas=[0.001, 0.01, 0.05, 0.1, 0.2], verbose=False):
+        if self.log_returns is None:
+            self.process_stock_data()
+        
+        data_np = self.log_returns.values
+        labels = self.log_returns.columns.tolist()
+        
+        results = []
+        best_bic = float('inf')
+        best_graph = None
+        best_alpha = 0.05
+        
+        if verbose:
+            print(f"Tuning PC Algorithm over alphas: {alphas}...")
+            
+        for alpha in alphas:
+            cg = pc(data_np, alpha, "fisherz")
+            n_edges = cg.G.get_num_edges()
+            bic = self.calculate_bic_for_dag(self.log_returns, cg.G)
+
+            results.append({
+                'alpha': alpha,
+                'n_edges': n_edges,
+                'bic': bic,
+                'graph': cg.G
+            })
+
+            if verbose:
+                print(f"  Alpha: {alpha:<6} | Edges: {n_edges:<4} | BIC: {bic:.2f}")
+
+            if bic < best_bic:
+                best_bic = bic
+                best_graph = cg.G
+                best_alpha = alpha
+
+        if verbose:
+            self._plot_pc_results(results, best_alpha, best_graph, labels)
+
+        return {
+            'best_graph': best_graph,
+            'best_alpha': best_alpha,
+            'results': results
+        }
+        
+    def _plot_pc_results(self, results, best_alpha, best_graph, labels):
+        alphas_plot = [r['alpha'] for r in results]
+        edges_plot = [r['n_edges'] for r in results]
+        bics_plot = [r['bic'] for r in results]
+
+        fig, ax1 = plt.subplots(figsize=(10, 6))
+
+        color = 'tab:blue'
+        ax1.set_xlabel('Alpha (Significance Level)')
+        ax1.set_ylabel('Number of Edges', color=color)
+        ax1.plot(alphas_plot, edges_plot, marker='o', color=color, label='Sparsity (Edges)')
+        ax1.tick_params(axis='y', labelcolor=color)
+        ax1.grid(True, alpha=0.3)
+
+        ax2 = ax1.twinx()
+        color = 'tab:red'
+        ax2.set_ylabel('BIC Score (Lower is Better)', color=color)
+        ax2.plot(alphas_plot, bics_plot, marker='x', linestyle='--', color=color, label='BIC Score')
+        ax2.tick_params(axis='y', labelcolor=color)
+
+        plt.title(f'PC Algorithm Hyperparameter Tuning\nBest Alpha (min BIC): {best_alpha}')
+        fig.tight_layout()
+        plt.savefig(os.path.join(self.figure_dir, '1c_pc_tuning.png'), dpi=150)
+        plt.show()
+
+        print(f"\nBest Alpha selected by BIC: {best_alpha}")
+        print(f"Number of edges in best graph: {best_graph.get_num_edges()}")
+
+        # 使用 NetworkX 绘制图
+        G_nx = nx.DiGraph()
+        nodes = best_graph.get_nodes()
+
+        # 添加所有节点
+        for i in range(len(nodes)):
+            G_nx.add_node(i, label=labels[i])
+
+        # 添加边并判断方向
+        graph_edges = best_graph.get_graph_edges()
+        directed_edges = []
+        undirected_edges = []
+
+        for edge in graph_edges:
+            node1 = edge.get_node1()
+            node2 = edge.get_node2()
+            idx1 = nodes.index(node1)
+            idx2 = nodes.index(node2)
+
+            endpoint1 = edge.get_endpoint1()
+            endpoint2 = edge.get_endpoint2()
+
+            # 调试：打印端点类型
+            ep1_name = endpoint1.name if hasattr(endpoint1, 'name') else str(endpoint1)
+            ep2_name = endpoint2.name if hasattr(endpoint2, 'name') else str(endpoint2)
+
+            # 判断边的方向
+            # ARROW 表示箭头端，TAIL 表示尾部端
+            # node1 --endpoint1-endpoint2--> node2
+            # 如果 endpoint2 是 ARROW，箭头指向 node2；如果 endpoint1 是 ARROW，箭头指向 node1
+
+            if ep1_name == 'TAIL' and ep2_name == 'ARROW':
+                # node1 --> node2
+                directed_edges.append((idx1, idx2))
+                G_nx.add_edge(idx1, idx2)
+            elif ep1_name == 'ARROW' and ep2_name == 'TAIL':
+                # node1 <-- node2
+                directed_edges.append((idx2, idx1))
+                G_nx.add_edge(idx2, idx1)
+            else:
+                # 无向边或其他类型
+                undirected_edges.append((idx1, idx2))
+                G_nx.add_edge(idx1, idx2)
+                G_nx.add_edge(idx2, idx1)
+
+        # 绘制图形
+        plt.figure(figsize=(16, 16))
+        pos = nx.spring_layout(G_nx, k=2.5, iterations=100, seed=42)
+
+        # 绘制节点
+        nx.draw_networkx_nodes(G_nx, pos, node_size=2000, node_color='lightblue',
+                              alpha=0.9, edgecolors='navy', linewidths=2)
+
+        # 绘制节点标签
+        nx.draw_networkx_labels(G_nx, pos, {i: labels[i] for i in range(len(labels))},
+                               font_size=11, font_weight='bold')
+
+        # 分别绘制有向边和无向边
+        if directed_edges:
+            nx.draw_networkx_edges(G_nx, pos, edgelist=directed_edges,
+                                  edge_color='darkblue', arrows=True, arrowsize=25,
+                                  arrowstyle='-|>', connectionstyle='arc3,rad=0.15',
+                                  width=2.5, alpha=0.7, node_size=2000)
+
+        if undirected_edges:
+            nx.draw_networkx_edges(G_nx, pos, edgelist=undirected_edges,
+                                  edge_color='red', arrows=False,
+                                  width=2.0, alpha=0.5, style='dashed')
+
+        plt.title(f"Optimal Directed Graph (PC Algorithm, alpha={best_alpha})\n"
+                 f"Directed edges: {len(directed_edges)}, Undirected edges: {len(undirected_edges)}",
+                 fontsize=14, pad=20)
+        plt.axis('off')
+        plt.tight_layout()
+        plt.savefig(os.path.join(self.figure_dir, '1c_pc_graph.png'), dpi=150, bbox_inches='tight')
         plt.show()
