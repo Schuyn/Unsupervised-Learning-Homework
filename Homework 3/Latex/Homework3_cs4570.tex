@@ -207,4 +207,38 @@ class under this optimal parameter choice.
     \label{fig:pc_graph}
 \end{figure}
 
+\subsection{Comparison and Interpretation.}
+The learned structure from Figure~\ref{fig:pc_graph} displays a clear pattern:
+technology stocks exhibit substantially richer and more directional dependency
+relationships compared to the other sectors. For example, MSFT appears as a
+child of all technology names, including AAPL, GOOGL, NVDA, AMZN and META,
+indicating that its conditional distribution depends structurally on multiple
+peers within the same sector. In contrast, NVDA and GOOGL share an undirected
+edge but act as parents to all other surrounding nodes, placing them in more central
+positions within the technology cluster. These findings are consistent with the
+results from part (b), in which the precision matrices also implied a tightly
+connected technology block.
+
+Other sectors exhibit markedly more isolated behavior. For instance, in the
+energy sector, XOM is connected only to CVX, and once CVX is conditioned on,
+XOM becomes conditionally independent of all other stocks in the universe. This
+highlights both the internal coherence of the energy sector and its relative
+independence from the remaining market, which are consistent with common sense.
+
+An interesting contrast emerges when comparing the PC graph with the precision
+matrices from part (b). Pairs such as KO--AMZN and JPM--GOOGL exhibit strong
+partial correlations under the Gaussian and nonparanormal graphical lasso, yet
+no direct edge appears between them in the PC graph. This difference reflects
+the distinct logics of the two models: graphical lasso identifies pairwise
+partial correlations, while the PC algorithm searches for a directed acyclic
+graph that satisfies a complete set of conditional independence relations. As a
+result, some associations are represented not by direct edges but by indirect
+paths---for example, KO connects to AMZN through AAPL or WMT. This is also
+consistent with economic intuition, as consumer staples and mega-cap technology
+firms often share indirect market linkages through broader macro or demand
+channels.
+
+\subsection{Granger Causal Graphical Model.}
+
+
 \end{document}
