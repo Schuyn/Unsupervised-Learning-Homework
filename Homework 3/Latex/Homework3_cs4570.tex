@@ -103,7 +103,6 @@ The cumulative returns plot (Figure \ref{fig:cumulative_returns}) illustrates th
 
 \subsubsection{Correlation Analysis}
 The correlation heatmap (Figure \ref{fig:correlation_heatmap}) reveals strong clustering of dependence among stocks within the same sector, which confirms the pervasive influence of systematic market risk.
-Additionally, Figure~\ref{fig:sector_correlations} shows the within-sector correlation analysis, where stocks in the same industry (e.g., Tech, Energy) exhibit notably higher correlations than cross-sector pairs.
 
 \textbf{Key Observations from the Heatmap:}
 \begin{itemize}
@@ -131,14 +130,47 @@ This preliminary analysis confirms the existence of strong, sector-specific depe
     \end{minipage}
 \end{figure}
 
-\begin{figure}[h!]
-    \centering
-    \includegraphics[width=0.8\textwidth]{Figures/1a_sector_correlations.png}
-    \caption{Sector Internal and Cross-Sector Correlation Overview}
-    \label{fig:sector_correlations}
-\end{figure}
-
 \subsection{Graphical Lasso.}
 
+Figure~\ref{fig:glasso_precision} shows the estimated precision matrices from both the Gaussian Graphical Lasso and the
+nonparanormal (rank-based) Graphical Lasso. The two heatmaps are almost identical,
+indicating that although individual stock returns are heavy-tailed, the dependence
+structure is well approximated by a Gaussian copula. Consequently, both methods
+recover essentially the same sparse conditional dependence network, suggesting that the
+underlying structure is stable, low-dimensional, and largely driven by sector-level
+factors.
+
+The estimated graph highlights several strong conditional dependencies (e.g.,
+AMZN--KO, JPM--GOOGL, WMT--BAC, NVDA--PFE) and a clear technology cluster
+consisting of AAPL, MSFT, GOOGL, AMZN, and META. NVIDIA does not join this
+cluster, likely due to its unusually strong and volatile performance during the sample
+period, which weakens its partial correlations with the other technology stocks after
+conditioning on the full set of variables.
+
+The regularization parameter $\alpha$ was selected via cross-validated Gaussian
+log-likelihood over a grid of 30 values spanning $\log_{10}(0.01)$ to
+$\log_{10}(0.8)$. This criterion is appropriate for unsupervised graphical models, as
+the validation likelihood measures generalization of the estimated precision matrix. The
+optimal values were
+\[
+\alpha_{\text{Gaussian}} = 0.021287, \qquad
+\alpha_{\text{Nonparanormal}} = 0.013528.
+\]
+For brevity, only the tuning curve for the Gaussian estimator is shown in
+Figure~\ref{fig:glasso_cv_curve}.
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.8\textwidth]{Figures/1b_glasso_precision_matrices.png}
+    \caption{Gaphic Lasso Estimated Precision Matrices: Standard (Left) vs. Non-Parametric (Right)}
+    \label{fig:glasso_precision}
+\end{figure}
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.8\textwidth]{Figures/1b_glasso_cv_curve.png}
+    \caption{Cross-Validated Log-Likelihood Curve for Standard Graphical Lasso}
+    \label{fig:glasso_cv_curve}
+\end{figure}
 
 \end{document}
