@@ -202,9 +202,19 @@ class under this optimal parameter choice.
 
 \begin{figure}[h!]
     \centering
-    \includegraphics[width=0.8\textwidth]{Figures/1c_pc_graph.png}
-    \caption{Best PC Algorithm Graph at $\alpha = 0.1$}
-    \label{fig:pc_graph}
+    \begin{minipage}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{Figures/1c_pc_graph.png}
+        \caption{Best PC Algorithm Graph at $\alpha = 0.1$}
+        \label{fig:pc_graph}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{Figures/1e_granger_network.png}
+        \caption{Granger Causal Graphical Model at $\alpha = 0.05$, Max Lag = 5}
+        \label{fig:granger_network}
+    \end{minipage}
 \end{figure}
 
 \subsection{Comparison and Interpretation.}
@@ -239,49 +249,55 @@ firms often share indirect market linkages through broader macro or demand
 channels.
 
 \subsection{Granger Causal Graphical Model.}
-\begin{table}[H]
-\centering
-\caption{Top 10 Significant Granger Causal Relationships}
-\begin{tabular}{lccc}
-\toprule
-\textbf{Cause (X)} & \textbf{Effect (Y)} & \textbf{P-value} & \textbf{Lag} \\
-\midrule
-META & AMZN & 0.000002 & 1 \\
-AAPL & JPM  & 0.000089 & 4 \\
-WMT  & PG   & 0.000165 & 3 \\
-AAPL & META & 0.000319 & 4 \\
-WMT  & KO   & 0.000415 & 1 \\
-MSFT & PG   & 0.000963 & 4 \\
-AAPL & MSFT & 0.001364 & 3 \\
-BAC  & AAPL & 0.001686 & 2 \\
-AAPL & AMZN & 0.002355 & 4 \\
-AAPL & BAC  & 0.002579 & 3 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
 To evaluate the stability of the Granger causality model, we performed a
 hyperparameter sweep over significance levels $\alpha \in \{0.01, 0.05, 0.1\}$ and
 maximum lags $\{1,3,5,7,10\}$. The resulting edge counts and graph densities are
-summarized in Figure~\ref{fig:granger_tuning}. The heatmaps show a clear monotonic
-pattern: both the number of detected causal edges and the overall graph density grow
-rapidly as either $\alpha$ or the maximum lag increases. This behavior reflects the
-well-known sensitivity of Granger causality tests to both noise and multiple
-comparisons, particularly when applied to high-volatility financial return data.
-
-Because interpretable causal networks should remain reasonably sparse, we selected
-$\alpha = 0.05$ and a maximum lag of 5 as a compromise between sparsity and
-statistical power. However, even under this moderate configuration the resulting
-Granger graph still contains 52 significant edges (density = 0.248), which is far more
-dense than the structures obtained in parts (b) and (c). This indicates that the
-Granger model captures a substantial amount of noise rather than stable structural
-dependencies.
+summarized in Figure~\ref{fig:granger_tuning}. Because interpretable causal networks should remain reasonably sparse, we selected
+$\alpha = 0.05$ and a maximum lag of 5. 
 
 \begin{figure}[h!]
     \centering
     \includegraphics[width=0.8\textwidth]{Figures/1e_granger_tuning.png}
-    \caption{Best PC Algorithm Graph at $\alpha = 0.1$}
+    \caption{Granger Causality Model Tuning: Edge Counts (Left) and Graph Density (Right) Across Significance Levels and Maximum Lags}
     \label{fig:granger_tuning}
 \end{figure}
+
+However, even under this moderate configuration, the resulting Granger 
+graph still contains 52 significant edges (density = 0.248), which is far more 
+dense than the sparse and interpretable structures obtained in parts (b) and (c). 
+Figure~\ref{fig:granger_matrix} illustrates the adjacency matrix of significant Granger causal relationships, 
+showing an unusually high concentration of edges across sectors. This density pattern 
+suggests that the Granger framework is detecting a large number of spurious 
+lead--lag relations rather than meaningful predictive structure.
+
+The final inferred Granger network is shown in Figure~\ref{fig:granger_network}. The resulting graph is 
+visibly dense and lacks the sectoral organization and coherent clusters observed in 
+the graphical lasso and PC algorithm results. Instead of revealing identifiable 
+industry-level dependency patterns, the Granger graph displays widespread, 
+cross-sector connections that contradict well-known market structure and are 
+characteristic of noise-driven statistical artifacts in financial return data.
+
+Together, these observations indicate that the Granger causality model does not fit 
+the dataset well. Even after choosing a reasonably conservative hyperparameter 
+setting, the method overfits the volatility and idiosyncratic noise inherent in 
+daily stock returns, producing a dense and unstable network that fails to capture 
+the stable structural dependencies recovered by the graphical lasso and PC models.
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.8\textwidth]{Figures/1e_granger_matrix.png}
+    \caption{Granger Causality Adjacency Matrix at $\alpha = 0.05$, Max Lag = 5}
+    \label{fig:granger_matrix}
+\end{figure}
+
+
+% -------------------------------
+% Problem 1
+% -------------------------------
+\section{Density estimation \& Generative Models.}
+
+
+
+
 
 \end{document}
