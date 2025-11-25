@@ -12,7 +12,7 @@ Description:
     4. evaluate_samples() -> metrics
     5. visualize_generated_samples() + compare_distributions()
 '''
-from Prob2_utils import Prob2Analysis
+from Prob2a_utils import Prob2Analysis
 
 
 def main():

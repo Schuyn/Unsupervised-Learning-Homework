@@ -292,11 +292,32 @@ the stable structural dependencies recovered by the graphical lasso and PC model
 
 
 % -------------------------------
-% Problem 1
+% Problem 2
 % -------------------------------
 \section{Density estimation \& Generative Models.}
+\subsection{Kernel Density Estimation (KDE).}
+A grid search was performed on the bandwidth parameter $h$ across three spaces (PCA-20/50 and original 64-dimensional space), 
+with 5-fold cross-validation used to select the optimal value based on average log-likelihood, the result is shown in Figure \ref{fig:kde_tuning}. 
+Since the CV score in the original space deteriorated significantly ($-19606$ vs $-8081$), 
+confirming the curse of dimensionality, the PCA-20 space (optimal $h=0.580$) was chosen for subsequent sampling. 
+The pixel intensity distribution of generated samples closely matches the original data (mean $4.88$ vs $4.95$, standard deviation $6.02$ vs $6.64$), but spatial structure differs: 
+generated samples exhibit only $23.91\%$ sparsity compared to the original $48.93\%$, a $50\%$ reduction, 
+indicating KDE's tendency to produce denser pixel distributions. 
+This results in some digits (e.g., 1, 0, 8) being clearly recognizable, though overall contrast remains insufficient(as shown in Figure \ref{fig:generated_samples}).
 
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.95\textwidth]{Figures/2a_kde_tuning.png}
+    \caption{KDE Bandwidth Tuning via 5-Fold Cross-Validation in PCA-20, PCA-50, and Original Spaces}
+    \label{fig:kde_tuning}
+\end{figure}
 
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.8\textwidth]{Figures/2a_generated_samples_pca_20.png}
+    \caption{Generated Samples from KDE in PCA-20 Space}
+    \label{fig:generated_samples}
+\end{figure}
 
 
 

@@ -1,8 +1,8 @@
 '''
 Author: Chuyang Su cs4570@columbia.edu
 Date: 2025-11-24 19:58:10
-LastEditTime: 2025-11-25 09:36:37
-FilePath: /Unsupervised-Learning-Homework/Homework 3/Code/Prob2_utils.py
+LastEditTime: 2025-11-25 09:43:24
+FilePath: /Unsupervised-Learning-Homework/Homework 3/Code/Prob2a_utils.py
 Description: 
     Utility functions and classes for Problem 2 of Homework 3.
     Kernel Density Estimation (KDE) for digit generation.
@@ -256,10 +256,6 @@ class Prob2Analysis:
         return metrics
     
     def _print_evaluation_metrics(self, metrics):
-        """Print evaluation metrics."""
-        print("\n" + "=" * 70)
-        print("Evaluation Metrics: Generated vs Original")
-        print("=" * 70)
         print(f"Mean (Original):     {metrics['original_mean']:.4f}")
         print(f"Mean (Generated):    {metrics['generated_mean']:.4f}")
         print(f"Std  (Original):     {metrics['original_std']:.4f}")
