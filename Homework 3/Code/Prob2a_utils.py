@@ -1,7 +1,7 @@
 '''
 Author: Chuyang Su cs4570@columbia.edu
 Date: 2025-11-24 19:58:10
-LastEditTime: 2025-11-24 21:29:06
+LastEditTime: 2025-11-25 09:36:37
 FilePath: /Unsupervised-Learning-Homework/Homework 3/Code/Prob2_utils.py
 Description: 
     Utility functions and classes for Problem 2 of Homework 3.
@@ -176,23 +176,6 @@ class Prob2Analysis:
         plt.show()
     
     def generate_samples(self, space='pca_20', n_samples=100, verbose=False):
-        """
-        Generate new samples from trained KDE model.
-        
-        Args:
-            space: Which trained model to use
-            n_samples: Number of samples to generate
-            verbose: Print generation info
-            
-        Returns:
-            Generated samples in original space (n_samples, 64)
-        """
-        if self.kde_results is None:
-            raise ValueError("Must fit KDE models first using fit_kde_models()")
-        
-        if space not in self.kde_results:
-            raise ValueError(f"Model not trained for space: {space}")
-        
         result = self.kde_results[space]
         model = result['model']
         
@@ -207,7 +190,7 @@ class Prob2Analysis:
             scaler.fit(self.data)
             X_original = scaler.inverse_transform(X_generated)
         
-        elif space.startswith('pca_'):
+        else:
             # Inverse PCA transformation
             pca = result['pca']
             pca.fit(self.data)
@@ -238,19 +221,7 @@ class Prob2Analysis:
         return X_original
     
     def evaluate_samples(self, generated_samples=None, verbose=False):
-        """
-        Evaluate quality of generated samples.
-        
-        Args:
-            generated_samples: Generated samples, or None to use self.generated_samples
-            verbose: Print evaluation metrics
-            
-        Returns:
-            Dictionary of evaluation metrics
-        """
         if generated_samples is None:
-            if self.generated_samples is None:
-                raise ValueError("No generated samples available")
             generated_samples = self.generated_samples['samples']
         
         metrics = {}
@@ -299,16 +270,7 @@ class Prob2Analysis:
             print(f"KNN Accuracy (Original): {metrics['knn_accuracy_original']:.4f}")
     
     def visualize_generated_samples(self, generated_samples=None, n_display=25):
-        """
-        Visualize generated digit samples.
-        
-        Args:
-            generated_samples: Generated samples, or None to use self.generated_samples
-            n_display: Number of samples to display (grid will be sqrt(n_display) x sqrt(n_display))
-        """
         if generated_samples is None:
-            if self.generated_samples is None:
-                raise ValueError("No generated samples available")
             generated_samples = self.generated_samples['samples']
             space = self.generated_samples['space']
         else:
@@ -328,12 +290,7 @@ class Prob2Analysis:
         plt.show()
     
     def compare_distributions(self, generated_samples=None):
-        """
-        Compare pixel intensity distributions between original and generated.
-        """
         if generated_samples is None:
-            if self.generated_samples is None:
-                raise ValueError("No generated samples available")
             generated_samples = self.generated_samples['samples']
         
         fig, axes = plt.subplots(1, 2, figsize=(14, 5))

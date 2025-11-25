@@ -1,7 +1,7 @@
 '''
 Author: Chuyang Su cs4570@columbia.edu
 Date: 2025-11-24 19:58:17
-LastEditTime: 2025-11-24 21:29:53
+LastEditTime: 2025-11-25 09:37:20
 FilePath: /Unsupervised-Learning-Homework/Homework 3/Code/Prob2_main.py
 Description: 
     Main script to run data processing and clustering model fitting for Homework 3.
@@ -31,21 +31,21 @@ def main():
         verbose=False
     )
     
-    # # Generate from PCA-20 space (fastest and often best quality)
-    # generated_pca20 = p2.generate_samples(
-    #     space='pca_20',
-    #     n_samples=100,
-    #     verbose=True
-    # )
+    # Generate from PCA-20 space (fastest and often best quality)
+    generated_pca20 = p2.generate_samples(
+        space='pca_20',
+        n_samples=100,
+        verbose=True
+    )
     
-    # metrics = p2.evaluate_samples(verbose=True)
+    metrics = p2.evaluate_samples(verbose=True)
     
-    # # Visualization and comparison
-    # print("\nVisualizing generated samples...")
-    # p2.visualize_generated_samples(n_display=25)
+    # Visualization and comparison
+    print("\nVisualizing generated samples...")
+    p2.visualize_generated_samples(n_display=25)
     
-    # print("\nComparing original vs generated distributions...")
-    # p2.compare_distributions()
+    print("\nComparing original vs generated distributions...")
+    p2.compare_distributions()
     
 
 if __name__ == "__main__":
