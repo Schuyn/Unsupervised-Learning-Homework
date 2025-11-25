@@ -73,7 +73,7 @@ The log return transformation was applied to the daily closing prices. The daily
 $$r_t = \ln(P_t) - \ln(P_{t-1})$$
 This dataset of log returns, spanning 1,228 trading days, was used for all subsequent graphical model fitting.
 
-\subsubsection{Descriptive Statistics}
+\subsubsection{Descriptive Statistics.}
 The table below summarizes the descriptive statistics for the daily log returns.
 
 \begin{table}[h!]
@@ -97,11 +97,11 @@ Max & 0.143 & 0.127 & 0.081 & 0.085 & 0.097 & 0.060 & 0.109 & 0.046 & 0.209 & 0.
 
 The data clearly demonstrates the risk-return trade-off. The semiconductor stock \texttt{NVDA} shows the highest average daily return ($\sim 0.213\%$) but also the highest volatility (Standard Deviation: $3.29\%$) and largest maximum single-day return ($\sim 21.8\%$). Conversely, consumer staples stocks like \texttt{KO} (Coca-Cola) and \texttt{PG} (P\&G) exhibit the lowest standard deviations ($\sim 1.0\%$), indicating high stability but lower returns. The largest single-day drop belongs to \texttt{META} (former FB) at $-30.6\%$.
 
-\subsubsection{Time-Series Exploration}
+\subsubsection{Time-Series Exploration.}
 The cumulative returns plot (Figure \ref{fig:cumulative_returns}) illustrates the differential performance across sectors over the analysis period.
 
 
-\subsubsection{Correlation Analysis}
+\subsubsection{Correlation Analysis.}
 The correlation heatmap (Figure \ref{fig:correlation_heatmap}) reveals strong clustering of dependence among stocks within the same sector, which confirms the pervasive influence of systematic market risk.
 
 \textbf{Key Observations from the Heatmap:}
@@ -290,7 +290,6 @@ the stable structural dependencies recovered by the graphical lasso and PC model
     \label{fig:granger_matrix}
 \end{figure}
 
-
 % -------------------------------
 % Problem 2
 % -------------------------------
@@ -314,12 +313,51 @@ This results in some digits (e.g., 1, 0, 8) being clearly recognizable, though o
 
 \begin{figure}[h!]
     \centering
-    \includegraphics[width=0.8\textwidth]{Figures/2a_generated_samples_pca_20.png}
-    \caption{Generated Samples from KDE in PCA-20 Space}
-    \label{fig:generated_samples}
+    \begin{minipage}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{Figures/2a_generated_samples_pca_20.png}
+        \caption{Generated Samples from KDE in PCA-20 Space}
+        \label{fig:generated_samples}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{Figures/2b_generated_samples_gan.png}
+        \caption{Generated Samples from GAN}
+        \label{fig:generated_samples_gan}
+    \end{minipage}
 \end{figure}
 
 \subsection{Generative Adversarial Network (GAN).}
+Overall, the parameter combination \texttt{latent\_dim=32}, \texttt{lr\_g=0.0001}, \texttt{G=[128, 256]} proves most suitable: 
+it achieves the lowest \texttt{std\_diff} (indicating generated sample distributions closest in shape to the original data), 
+while maintaining competitive \texttt{mean\_diff}. 
+Moreover, \texttt{latent=32} is more lightweight and less prone to overfitting, 
+with diversity $\approx 1.7$ indicating no severe mode collapse. 
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.95\textwidth]{Figures/2b_gan_tuning.png}
+    \caption{GAN Hyperparameter Tuning Results}
+    \label{fig:gan_tuning}
+\end{figure}
+
+Other hyperparameters include $\alpha_D$ fixed at 0.0002, consistent with the DCGAN paper. 
+The final choice employs $\alpha_G < \alpha_D$, allowing the Generator to learn more slowly, 
+since my previous experiments with $\alpha_G = \alpha_D$ resulted in training collapse due to Generator dominance over the Discriminator.
+
+Under optimal parameters, the model training process is illustrated in Figur \ref{fig:gan_tuning}. 
+Compared to my previous experiments, both losses converge relatively well, stabilizing around 1.0--1.2, 
+with Discriminator accuracy exceeding 0.5. 
+However, a significant disparity exists in distinguishing real versus generated samples: 
+accuracy remains above 0.8 when identifying fake samples, but falls below 0.6 for real samples. 
+This reflects an inherent limitation of Vanilla GAN---the min-max game struggles to reach Nash equilibrium, 
+explaining the research motivation behind subsequent methods such as WGAN and Diffusion Models.
+
+Generated sample examples are shown in Figure \ref{fig:generated_samples_gan}. 
+Several digits (e.g., 0, 1, 2, 3, 5, 6, 9) exhibit high recognizability, 
+with overall performance significantly superior to KDE.
+
+\subsection{Denoising Diffusion Model.}
 
 
 \end{document}
