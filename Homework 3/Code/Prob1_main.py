@@ -6,7 +6,7 @@ FilePath: /Unsupervised-Learning-Homework/Homework 3/Code/main.py
 Description: 
     Main script to run data processing and graphical model fitting for Homework 3.
 '''
-from hw3_utils import Prob1Analysis
+from Prob1_utils import Prob1Analysis
 
 def main():
     # Problem 1a
