@@ -17,7 +17,10 @@ def main():
     glasso_results = p1.fit_glasso_models(verbose=False)
 
     # Problem 1c
-    pc_results = p1.fit_pc_model(verbose=True)
+    pc_results = p1.fit_pc_model(verbose=False)
+    
+    # Problem 1e
+    granger_results = p1.fit_granger_model(verbose=True)
     
 if __name__ == "__main__":
     main()

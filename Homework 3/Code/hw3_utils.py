@@ -1,7 +1,7 @@
 '''
 Author: Chuyang Su cs4570@columbia.edu
 Date: 2025-11-23 17:27:40
-LastEditTime: 2025-11-24 12:37:55
+LastEditTime: 2025-11-24 19:22:55
 FilePath: /Unsupervised-Learning-Homework/Homework 3/Code/hw3_utils.py
 Description: 
     process_stock_data: 处理数据，根据 verbose 参数决定是否画图。
@@ -18,7 +18,8 @@ from scipy.stats import norm
 import networkx as nx
 from sklearn.covariance import GraphicalLassoCV
 from sklearn.preprocessing import StandardScaler
-from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import LinearRegression, LassoCV
+from statsmodels.tsa.stattools import grangercausalitytests
 from causallearn.search.ConstraintBased.PC import pc
 
 class Prob1Analysis:
@@ -392,3 +393,224 @@ class Prob1Analysis:
         plt.tight_layout()
         plt.savefig(os.path.join(self.figure_dir, '1c_pc_graph.png'), dpi=150, bbox_inches='tight')
         plt.show()
+        
+    def fit_granger_model(self, max_lag=5, significance_level=0.05, tune_params=True, verbose=False):
+        if self.log_returns is None:
+            self.process_stock_data()
+
+        # Hyperparameter tuning
+        if tune_params and verbose:
+            self._tune_granger_parameters(max_lag_range=[1, 3, 5, 7, 10],
+                                         alpha_range=[0.01, 0.05, 0.1])
+
+        n_features = len(self.tickers)
+        granger_matrix = np.zeros((n_features, n_features))
+        p_value_matrix = np.zeros((n_features, n_features))
+        optimal_lags = np.zeros((n_features, n_features), dtype=int)
+
+        if verbose:
+            print(f"\nRunning Granger Causality Tests (max_lag={max_lag}, alpha={significance_level})...")
+
+        for i, cause in enumerate(self.tickers):
+            for j, effect in enumerate(self.tickers):
+                if i == j:
+                    continue
+
+                data = self.log_returns[[effect, cause]].dropna()
+
+                try:
+                    test_result = grangercausalitytests(data, max_lag, verbose=False)
+
+                    min_p_value = 1.0
+                    best_lag = 0
+
+                    for lag in range(1, max_lag + 1):
+                        p_values = [test_result[lag][0][test][1]
+                                   for test in ['ssr_ftest', 'ssr_chi2test', 'lrtest', 'params_ftest']]
+                        avg_p = np.mean(p_values)
+
+                        if avg_p < min_p_value:
+                            min_p_value = avg_p
+                            best_lag = lag
+
+                    if min_p_value < significance_level:
+                        granger_matrix[i, j] = 1
+                        p_value_matrix[i, j] = min_p_value
+                        optimal_lags[i, j] = best_lag
+
+                except Exception as e:
+                    if verbose:
+                        print(f"  Warning: Test failed for {cause} -> {effect}: {e}")
+                    continue
+
+        granger_df = pd.DataFrame(granger_matrix, index=self.tickers, columns=self.tickers)
+        p_value_df = pd.DataFrame(p_value_matrix, index=self.tickers, columns=self.tickers)
+        lags_df = pd.DataFrame(optimal_lags, index=self.tickers, columns=self.tickers)
+
+        if verbose:
+            self._plot_granger_results(granger_df, p_value_df, lags_df, significance_level)
+
+        return {
+            'granger_matrix': granger_df,
+            'p_values': p_value_df,
+            'optimal_lags': lags_df
+        }
+
+    def _tune_granger_parameters(self, max_lag_range, alpha_range):
+        print("=" * 70)
+        print("Hyperparameter Tuning for Granger Causality Test")
+        print("=" * 70)
+
+        results = []
+
+        for max_lag in max_lag_range:
+            for alpha in alpha_range:
+                n_features = len(self.tickers)
+                granger_matrix = np.zeros((n_features, n_features))
+
+                for i, cause in enumerate(self.tickers):
+                    for j, effect in enumerate(self.tickers):
+                        if i == j:
+                            continue
+
+                        data = self.log_returns[[effect, cause]].dropna()
+
+                        try:
+                            test_result = grangercausalitytests(data, max_lag, verbose=False)
+
+                            min_p_value = 1.0
+                            for lag in range(1, max_lag + 1):
+                                p_values = [test_result[lag][0][test][1]
+                                           for test in ['ssr_ftest', 'ssr_chi2test', 'lrtest', 'params_ftest']]
+                                avg_p = np.mean(p_values)
+                                if avg_p < min_p_value:
+                                    min_p_value = avg_p
+
+                            if min_p_value < alpha:
+                                granger_matrix[i, j] = 1
+
+                        except:
+                            continue
+
+                n_edges = int(granger_matrix.sum())
+                density = n_edges / (n_features * (n_features - 1))
+
+                results.append({
+                    'max_lag': max_lag,
+                    'alpha': alpha,
+                    'n_edges': n_edges,
+                    'density': density
+                })
+
+        results_df = pd.DataFrame(results)
+        print("\nParameter Tuning Results:")
+        print(results_df.to_string(index=False))
+
+        # Visualization
+        pivot_edges = results_df.pivot(index='max_lag', columns='alpha', values='n_edges')
+        pivot_density = results_df.pivot(index='max_lag', columns='alpha', values='density')
+
+        _, axes = plt.subplots(1, 2, figsize=(16, 6))
+
+        sns.heatmap(pivot_edges, annot=True, fmt='.0f', cmap='YlOrRd',
+                   ax=axes[0], cbar_kws={'label': 'Number of Edges'})
+        axes[0].set_title('Number of Causal Edges vs Hyperparameters')
+        axes[0].set_xlabel('Significance Level (α)')
+        axes[0].set_ylabel('Max Lag')
+
+        sns.heatmap(pivot_density, annot=True, fmt='.3f', cmap='viridis',
+                   ax=axes[1], cbar_kws={'label': 'Graph Density'})
+        axes[1].set_title('Graph Density vs Hyperparameters')
+        axes[1].set_xlabel('Significance Level (α)')
+        axes[1].set_ylabel('Max Lag')
+
+        plt.tight_layout()
+        plt.savefig(os.path.join(self.figure_dir, '1e_granger_tuning.png'), dpi=150)
+        plt.show()
+
+        print("\n" + "=" * 70)
+
+    def _plot_granger_results(self, granger_df, p_value_df, lags_df, significance_level):
+        n_edges = int(granger_df.sum().sum())
+
+        print("\n--- Granger Causality Test Results ---")
+        print(f"Significance level: {significance_level}")
+        print(f"Number of significant Granger causal relationships: {n_edges}")
+        print(f"Graph density: {n_edges / (len(self.tickers) * (len(self.tickers) - 1)):.3f}")
+
+        # Plot 1: Granger causality adjacency matrix
+        _, axes = plt.subplots(1, 2, figsize=(20, 8))
+
+        sns.heatmap(granger_df, annot=True, fmt='.0f', cmap='Blues',
+                   xticklabels=self.tickers, yticklabels=self.tickers,
+                   ax=axes[0], cbar_kws={'label': 'Granger Causes (1=Yes, 0=No)'})
+        axes[0].set_title(f'Granger Causality Matrix (α={significance_level})\nRow causes Column')
+        axes[0].set_xlabel('Effect (Y)')
+        axes[0].set_ylabel('Cause (X)')
+
+        p_value_masked = p_value_df.copy()
+        p_value_masked[granger_df == 0] = np.nan
+
+        sns.heatmap(p_value_masked, annot=True, fmt='.3f', cmap='Reds_r',
+                   xticklabels=self.tickers, yticklabels=self.tickers,
+                   ax=axes[1], cbar_kws={'label': 'P-value'}, vmin=0, vmax=significance_level)
+        axes[1].set_title(f'P-values for Significant Relationships')
+        axes[1].set_xlabel('Effect (Y)')
+        axes[1].set_ylabel('Cause (X)')
+
+        plt.tight_layout()
+        plt.savefig(os.path.join(self.figure_dir, '1e_granger_matrix.png'), dpi=150)
+        plt.show()
+
+        # Plot 2: Network graph
+        G = nx.DiGraph()
+        for ticker in self.tickers:
+            G.add_node(ticker)
+
+        edge_list = []
+        for i, cause in enumerate(self.tickers):
+            for j, effect in enumerate(self.tickers):
+                if granger_df.iloc[i, j] == 1:
+                    edge_list.append((cause, effect))
+                    G.add_edge(cause, effect,
+                              weight=1 - p_value_df.iloc[i, j],
+                              lag=int(lags_df.iloc[i, j]))
+
+        plt.figure(figsize=(14, 14))
+        pos = nx.spring_layout(G, k=2, iterations=100, seed=42)
+
+        nx.draw_networkx_nodes(G, pos, node_size=2500, node_color='lightblue',
+                              alpha=0.9, edgecolors='navy', linewidths=2)
+        nx.draw_networkx_labels(G, pos, font_size=11, font_weight='bold')
+
+        if edge_list:
+            nx.draw_networkx_edges(G, pos, edgelist=edge_list,
+                                  edge_color='darkblue', arrows=True, arrowsize=25,
+                                  arrowstyle='-|>', connectionstyle='arc3,rad=0.1',
+                                  width=2, alpha=0.7, node_size=2500)
+
+        plt.title(f"Granger Causality Network (α={significance_level})\n"
+                 f"{n_edges} significant causal relationships",
+                 fontsize=14, pad=20)
+        plt.axis('off')
+        plt.tight_layout()
+        plt.savefig(os.path.join(self.figure_dir, '1e_granger_network.png'),
+                   dpi=150, bbox_inches='tight')
+        plt.show()
+
+        # Summary statistics
+        print("\nTop 10 strongest Granger causal relationships:")
+        relationships = []
+        for i, cause in enumerate(self.tickers):
+            for j, effect in enumerate(self.tickers):
+                if granger_df.iloc[i, j] == 1:
+                    relationships.append({
+                        'Cause': cause,
+                        'Effect': effect,
+                        'P-value': p_value_df.iloc[i, j],
+                        'Lag': int(lags_df.iloc[i, j])
+                    })
+
+        if relationships:
+            relationships_df = pd.DataFrame(relationships).sort_values('P-value')
+            print(relationships_df.head(10).to_string(index=False))

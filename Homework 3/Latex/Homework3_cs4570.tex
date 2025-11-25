@@ -239,6 +239,49 @@ firms often share indirect market linkages through broader macro or demand
 channels.
 
 \subsection{Granger Causal Graphical Model.}
+\begin{table}[H]
+\centering
+\caption{Top 10 Significant Granger Causal Relationships}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Cause (X)} & \textbf{Effect (Y)} & \textbf{P-value} & \textbf{Lag} \\
+\midrule
+META & AMZN & 0.000002 & 1 \\
+AAPL & JPM  & 0.000089 & 4 \\
+WMT  & PG   & 0.000165 & 3 \\
+AAPL & META & 0.000319 & 4 \\
+WMT  & KO   & 0.000415 & 1 \\
+MSFT & PG   & 0.000963 & 4 \\
+AAPL & MSFT & 0.001364 & 3 \\
+BAC  & AAPL & 0.001686 & 2 \\
+AAPL & AMZN & 0.002355 & 4 \\
+AAPL & BAC  & 0.002579 & 3 \\
+\bottomrule
+\end{tabular}
+\end{table}
 
+To evaluate the stability of the Granger causality model, we performed a
+hyperparameter sweep over significance levels $\alpha \in \{0.01, 0.05, 0.1\}$ and
+maximum lags $\{1,3,5,7,10\}$. The resulting edge counts and graph densities are
+summarized in Figure~\ref{fig:granger_tuning}. The heatmaps show a clear monotonic
+pattern: both the number of detected causal edges and the overall graph density grow
+rapidly as either $\alpha$ or the maximum lag increases. This behavior reflects the
+well-known sensitivity of Granger causality tests to both noise and multiple
+comparisons, particularly when applied to high-volatility financial return data.
+
+Because interpretable causal networks should remain reasonably sparse, we selected
+$\alpha = 0.05$ and a maximum lag of 5 as a compromise between sparsity and
+statistical power. However, even under this moderate configuration the resulting
+Granger graph still contains 52 significant edges (density = 0.248), which is far more
+dense than the structures obtained in parts (b) and (c). This indicates that the
+Granger model captures a substantial amount of noise rather than stable structural
+dependencies.
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.8\textwidth]{Figures/1e_granger_tuning.png}
+    \caption{Best PC Algorithm Graph at $\alpha = 0.1$}
+    \label{fig:granger_tuning}
+\end{figure}
 
 \end{document}
