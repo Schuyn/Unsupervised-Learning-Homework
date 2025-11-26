@@ -1,12 +1,10 @@
 '''
 Author: Chuyang Su cs4570@columbia.edu
 Date: 2025-11-23 17:27:40
-LastEditTime: 2025-11-24 19:22:55
-FilePath: /Unsupervised-Learning-Homework/Homework 3/Code/hw3_utils.py
+LastEditTime: 2025-11-26 11:22:20
+FilePath: /Unsupervised-Learning-Homework/Homework 3/Code/prob1_utils.py
 Description: 
-    process_stock_data: 处理数据，根据 verbose 参数决定是否画图。
-
-    fit_glasso_models: 拟合标准 Glasso 和非参数 Glasso，同样由 verbose 控制输出。
+    Utility functions and classes for Problem 1 analysis in Homework 3.
 '''
 import os
 import yfinance as yf
