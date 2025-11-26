@@ -1,7 +1,7 @@
 '''
 Author: Chuyang Su cs4570@columbia.edu
 Date: 2025-11-25 15:08:49
-LastEditTime: 2025-11-25 20:32:03
+LastEditTime: 2025-11-25 20:56:24
 FilePath: /Unsupervised-Learning-Homework/Homework 3/Code/Prob2c_utils.py
 Description: 
     Utility functions and classes for Problem 2c of Homework 3.
@@ -467,10 +467,6 @@ class Prob2cAnalysis:
         plt.show()
     
     def generate_samples(self, n_samples=100, verbose=False):
-        """Generate new samples via reverse diffusion."""
-        if self.diffusion_results is None:
-            raise ValueError("Diffusion model not trained. Call fit_diffusion() first.")
-        
         model = self.diffusion_results['model']
         scheduler = self.diffusion_results['scheduler']
         num_timesteps = self.diffusion_results['config']['num_timesteps']
@@ -515,18 +511,18 @@ class Prob2cAnalysis:
         
         metrics = {}
         
-        # 1. Sample statistics comparison
+        # Sample statistics comparison
         metrics['original_mean'] = self.data.mean()
         metrics['original_std'] = self.data.std()
         metrics['generated_mean'] = generated_samples.mean()
         metrics['generated_std'] = generated_samples.std()
         
-        # 2. Sparsity check
+        # Sparsity check
         threshold = 0.5
         metrics['original_sparsity'] = (self.data < threshold).mean()
         metrics['generated_sparsity'] = (generated_samples < threshold).mean()
         
-        # 3. Diversity check
+        # Diversity check
         try:
             gen_pca = PCA(n_components=10).fit_transform(generated_samples)
             pairwise_dist = cdist(gen_pca, gen_pca, metric='euclidean')
@@ -560,7 +556,6 @@ class Prob2cAnalysis:
             print(f"Diversity Ratio:     {metrics['diversity_ratio']:.4f}")
     
     def visualize_generated_samples(self, generated_samples=None, n_display=25):
-        """Visualize grid of generated samples."""
         if generated_samples is None:
             generated_samples = self.generated_samples['samples']
         
@@ -578,13 +573,12 @@ class Prob2cAnalysis:
         plt.show()
     
     def compare_distributions(self, generated_samples=None):
-        """Compare original vs generated distributions."""
         if generated_samples is None:
             generated_samples = self.generated_samples['samples']
         
         fig, axes = plt.subplots(1, 3, figsize=(18, 5))
         
-        # Plot 1: Pixel intensity distribution
+        # Pixel intensity distribution
         axes[0].hist(self.data.flatten(), bins=50, alpha=0.6, label='Original',
                     color='blue', density=True)
         axes[0].hist(generated_samples.flatten(), bins=50, alpha=0.6, label='Generated',
@@ -595,7 +589,7 @@ class Prob2cAnalysis:
         axes[0].legend()
         axes[0].grid(alpha=0.3)
         
-        # Plot 2: Sparsity comparison
+        # Sparsity comparison
         sparsity_orig = (self.data < 0.5).sum(axis=1).mean()
         sparsity_gen = (generated_samples < 0.5).sum(axis=1).mean()
         
@@ -606,7 +600,7 @@ class Prob2cAnalysis:
         axes[1].set_title('Sparsity Comparison')
         axes[1].grid(axis='y', alpha=0.3)
         
-        # Plot 3: PCA projection comparison
+        # PCA projection comparison
         pca = PCA(n_components=2)
         orig_pca = pca.fit_transform(self.data)
         gen_pca = pca.transform(generated_samples)
@@ -624,7 +618,6 @@ class Prob2cAnalysis:
         plt.show()
     
     def visualize_diffusion_process(self, n_steps=10):
-        """Visualize the reverse diffusion process."""
         if self.diffusion_results is None:
             raise ValueError("Diffusion model not trained. Call fit_diffusion() first.")
         
@@ -671,7 +664,6 @@ class Prob2cAnalysis:
         plt.show()
     
     def compare_with_real_samples(self, n_display=10):
-        """Side-by-side comparison of real vs generated samples."""
         if self.generated_samples is None:
             self.generate_samples(n_samples=n_display)
         
