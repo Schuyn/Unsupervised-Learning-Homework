@@ -345,7 +345,7 @@ Other hyperparameters include $\alpha_D$ fixed at 0.0002, consistent with the DC
 The final choice employs $\alpha_G < \alpha_D$, allowing the Generator to learn more slowly, 
 since my previous experiments with $\alpha_G = \alpha_D$ resulted in training collapse due to Generator dominance over the Discriminator.
 
-Under optimal parameters, the model training process is illustrated in Figur \ref{fig:gan_tuning}. 
+Under optimal parameters, the model training process is illustrated in Figure \ref{fig:gan_tuning}. 
 Compared to my previous experiments, both losses converge relatively well, stabilizing around 1.0--1.2, 
 with Discriminator accuracy exceeding 0.5. 
 However, a significant disparity exists in distinguishing real versus generated samples: 
@@ -358,6 +358,25 @@ Several digits (e.g., 0, 1, 2, 3, 5, 6, 9) exhibit high recognizability,
 with overall performance significantly superior to KDE.
 
 \subsection{Denoising Diffusion Model.}
+In this experiment, we optimized three hyperparameters: 
+learning rate (lr), number of timesteps, and network architecture. 
+Among all 18 combinations, we used heatmaps of mean\_diff and std\_diff to determine lr and timesteps, 
+while final loss guided the selection of architecture. 
+The results are shown in Figure~\ref{fig:diffusion_tuning}.
 
+From the final loss perspective, architecture $[256, 512, 256]$ significantly outperforms \newline 
+$[128, 256, 128]$ on average. 
+Building upon this, the combination of $\text{timesteps}=500$ and $\text{lr}=0.0005$ achieves the lowest mean\_diff (0.0054), 
+with std\_diff also within an acceptable range. 
+Therefore, we select $\text{lr}=0.0005$, $\text{timesteps}=500$, and $\text{architecture}=[256, 512, 256]$ 
+as our optimal model configuration. 
+All subsequent discussions are based on this setting.
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.95\textwidth]{Figures/2c_diffusion_tuning.png}
+    \caption{Diffusion Model Hyperparameter Tuning Results}
+    \label{fig:diffusion_tuning}
+\end{figure}
 
 \end{document}
